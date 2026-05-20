@@ -90,14 +90,14 @@ nav a:hover {
 }
 
 .container {
-    width: min(1180px, calc(100% - 32px));
-    margin: 24px auto;
+    width: min(1680px, calc(100% - clamp(24px, 4vw, 72px)));
+    margin: clamp(14px, 2vw, 24px) auto;
 }
 
 .app-shell {
     display: grid;
-    grid-template-columns: 220px minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: clamp(190px, 13vw, 240px) minmax(0, 1fr);
+    gap: clamp(14px, 1.6vw, 24px);
     align-items: start;
 }
 
@@ -155,8 +155,8 @@ nav a:hover {
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 18px;
+    padding: clamp(16px, 1.5vw, 22px);
+    margin-bottom: clamp(14px, 1.5vw, 18px);
     box-shadow: var(--shadow);
 }
 
@@ -337,7 +337,7 @@ th {
 
 .grid {
     display: grid;
-    gap: 18px;
+    gap: clamp(14px, 1.5vw, 18px);
 }
 
 .grid.two {
@@ -351,15 +351,16 @@ th {
 }
 
 .filters-panel {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     align-items: end;
     margin-top: 18px;
 }
 
 .media-option-groups {
     display: grid;
-    gap: 18px;
-    margin-top: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
+    gap: 14px;
+    margin-top: 16px;
 }
 
 .option-group {
@@ -371,7 +372,7 @@ th {
 
 .option-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 10px;
 }
 
@@ -379,7 +380,7 @@ th {
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 4px 10px;
-    min-height: 96px;
+    min-height: 82px;
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 12px;
@@ -414,7 +415,7 @@ th {
 .formula-box {
     display: grid;
     gap: 8px;
-    margin: 18px 0 0;
+    margin: 14px 0 0;
     border: 1px solid var(--line);
     border-radius: 8px;
     background: linear-gradient(180deg, var(--soft), #fff);
@@ -558,8 +559,8 @@ label {
 
 .analysis-summary {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: clamp(12px, 1.2vw, 18px);
 }
 
 .compact-summary {
@@ -642,7 +643,7 @@ label {
 }
 
 .metric strong {
-    font-size: 34px;
+    font-size: clamp(24px, 2.2vw, 34px);
 }
 
 .bar-chart {
@@ -676,6 +677,10 @@ label {
 }
 
 @media (max-width: 760px) {
+    .container {
+        width: min(100% - 20px, 1680px);
+    }
+
     .topbar,
     .section-title {
         align-items: stretch;

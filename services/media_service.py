@@ -309,19 +309,7 @@ def exportar_resultados_excel(pasta_exportacao, resultados, estatisticas):
 def exportar_resultados_pdf(pasta_exportacao, resultados, estatisticas):
     caminho = Path(pasta_exportacao) / f"gerador_medias_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
     caminho.parent.mkdir(parents=True, exist_ok=True)
-    linhas = [
-        "Gerador de Médias",
-        f"Média geral das notas filtradas: {estatisticas.get('media_geral')}",
-        f"Notas válidas: {estatisticas.get('notas_validas')}",
-        f"Alunos abaixo da média: {estatisticas.get('qtd_abaixo_media')}",
-        "",
-    ]
-    for row in resultados[:45]:
-        linhas.append(
-            f"{row.get('ranking')}. {row.get('aluno') or row.get('turma') or 'Turma'} | "
-            f"{row.get('disciplina')} | {row.get('bimestre')} | {row.get('media_calculada')}"
-        )
-    caminho.write_bytes(_pdf_simples("\n".join(linhas)))
+    caminho.write_bytes(_pdf_relatorio_medias(resultados, estatisticas))
     return caminho
 
 
@@ -516,22 +504,82 @@ def _bimestre_numero(valor):
     return 99
 
 
-def _pdf_simples(texto):
-    linhas = texto.splitlines()
-    comandos = ["BT", "/F1 10 Tf", "50 790 Td"]
-    for idx, linha in enumerate(linhas[:55]):
-        if idx:
-            comandos.append("0 -14 Td")
-        comandos.append(f"({_escape_pdf(linha[:100])}) Tj")
-    comandos.append("ET")
-    stream = "\n".join(comandos).encode("latin-1", errors="replace")
+def _pdf_relatorio_medias(resultados, estatisticas):
+    largura, altura = 842, 595
+    margem = 36
+    colunas = [
+        ("Rank", 36, lambda row: row.get("ranking", "")),
+        ("Aluno/Turma", 178, lambda row: row.get("aluno") or row.get("turma") or "Turma"),
+        ("Disciplina", 160, lambda row: row.get("disciplina", "")),
+        ("Bimestre", 92, lambda row: row.get("bimestre", "")),
+        ("Media", 62, lambda row: _fmt(row.get("media_calculada"))),
+        ("Situacao", 92, lambda row: row.get("situacao", "")),
+        ("Obs.", 150, lambda row: row.get("observacao", "")),
+    ]
+    largura_tabela = sum(coluna[1] for coluna in colunas)
+    linhas_por_pagina = 18
+    paginas_resultados = [resultados[i : i + linhas_por_pagina] for i in range(0, len(resultados), linhas_por_pagina)] or [[]]
+    total_paginas = len(paginas_resultados)
+    streams = []
+
+    for pagina_idx, linhas in enumerate(paginas_resultados, start=1):
+        comandos = []
+        _cabecalho_pdf(comandos, largura, altura, margem, pagina_idx, total_paginas)
+
+        if pagina_idx == 1:
+            _resumo_pdf(comandos, estatisticas, margem, altura - 116)
+            y = altura - 216
+        else:
+            y = altura - 116
+
+        _retangulo(comandos, margem, y - 24, largura_tabela, 24, fill=(0.92, 0.96, 0.95), stroke=(0.78, 0.84, 0.82))
+        x = margem
+        for titulo, largura_coluna, _getter in colunas:
+            _texto(comandos, titulo, x + 6, y - 15, 8.5, fonte="F2", cor=(0.10, 0.18, 0.25))
+            x += largura_coluna
+
+        y -= 24
+        for idx, row in enumerate(linhas):
+            altura_linha = _altura_linha(row, colunas)
+            fill = (1, 1, 1) if idx % 2 == 0 else (0.97, 0.98, 0.99)
+            _retangulo(comandos, margem, y - altura_linha, largura_tabela, altura_linha, fill=fill, stroke=(0.86, 0.89, 0.92))
+            x = margem
+            for _titulo, largura_coluna, getter in colunas:
+                texto = str(getter(row) or "")
+                for linha_idx, linha in enumerate(_quebrar_texto(texto, largura_coluna, 7.8)[:3]):
+                    _texto(comandos, linha, x + 6, y - 13 - (linha_idx * 10), 7.8, cor=(0.16, 0.22, 0.30))
+                x += largura_coluna
+            y -= altura_linha
+
+        _rodape_pdf(comandos, largura, margem, pagina_idx, total_paginas)
+        streams.append("\n".join(comandos).encode("latin-1", errors="replace"))
+
     objetos = [
         b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n",
-        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n",
-        b"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj\n",
-        b"4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
-        b"5 0 obj << /Length " + str(len(stream)).encode() + b" >> stream\n" + stream + b"\nendstream endobj\n",
+        f"2 0 obj << /Type /Pages /Kids [{' '.join(f'{3 + i * 2} 0 R' for i in range(len(streams)))}] /Count {len(streams)} >> endobj\n".encode(),
     ]
+
+    for idx, stream in enumerate(streams):
+        page_obj = 3 + idx * 2
+        content_obj = page_obj + 1
+        objetos.append(
+            f"{page_obj} 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 {largura} {altura}] "
+            f"/Resources << /Font << /F1 {3 + len(streams) * 2} 0 R /F2 {4 + len(streams) * 2} 0 R >> >> "
+            f"/Contents {content_obj} 0 R >> endobj\n".encode()
+        )
+        objetos.append(
+            f"{content_obj} 0 obj << /Length {len(stream)} >> stream\n".encode()
+            + stream
+            + b"\nendstream endobj\n"
+        )
+
+    objetos.extend(
+        [
+            f"{3 + len(streams) * 2} 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n".encode(),
+            f"{4 + len(streams) * 2} 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj\n".encode(),
+        ]
+    )
+
     pdf = b"%PDF-1.4\n"
     offsets = []
     for obj in objetos:
@@ -543,6 +591,96 @@ def _pdf_simples(texto):
         pdf += f"{offset:010d} 00000 n \n".encode()
     pdf += f"trailer << /Root 1 0 R /Size {len(objetos)+1} >>\nstartxref\n{xref}\n%%EOF".encode()
     return pdf
+
+
+def _cabecalho_pdf(comandos, largura, altura, margem, pagina, total_paginas):
+    _retangulo(comandos, 0, altura - 78, largura, 78, fill=(0.12, 0.20, 0.29))
+    _texto(comandos, "MediaEscola", margem, altura - 32, 15, fonte="F2", cor=(1, 1, 1))
+    _texto(comandos, "Relatorio do Gerador de Medias", margem, altura - 54, 10, cor=(0.86, 0.91, 0.96))
+    _texto(
+        comandos,
+        f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}  |  Pagina {pagina}/{total_paginas}",
+        largura - 260,
+        altura - 42,
+        8.5,
+        cor=(0.86, 0.91, 0.96),
+    )
+
+
+def _resumo_pdf(comandos, estatisticas, margem, y):
+    cards = [
+        ("Notas validas", estatisticas.get("notas_validas")),
+        ("Media geral", _fmt(estatisticas.get("media_geral"))),
+        ("Maior nota", _fmt(estatisticas.get("maior_nota"))),
+        ("Menor nota", _fmt(estatisticas.get("menor_nota"))),
+        ("Abaixo da media", estatisticas.get("qtd_abaixo_media")),
+        ("Aprovacao", f"{estatisticas.get('percentual_aprovacao', 0)}%"),
+    ]
+    largura_card = 118
+    for idx, (titulo, valor) in enumerate(cards):
+        x = margem + idx * (largura_card + 12)
+        _retangulo(comandos, x, y - 54, largura_card, 54, fill=(0.98, 0.99, 1), stroke=(0.82, 0.87, 0.92))
+        _texto(comandos, titulo, x + 10, y - 18, 7.8, fonte="F2", cor=(0.37, 0.45, 0.55))
+        _texto(comandos, str(valor if valor is not None else "-"), x + 10, y - 40, 15, fonte="F2", cor=(0.08, 0.32, 0.28))
+
+
+def _rodape_pdf(comandos, largura, margem, pagina, total_paginas):
+    _linha(comandos, margem, 34, largura - margem, 34, cor=(0.82, 0.87, 0.92))
+    _texto(comandos, "Resultados calculados conforme os filtros selecionados no sistema.", margem, 20, 7.5, cor=(0.42, 0.48, 0.56))
+    _texto(comandos, f"{pagina}/{total_paginas}", largura - margem - 26, 20, 7.5, cor=(0.42, 0.48, 0.56))
+
+
+def _altura_linha(row, colunas):
+    maior = 1
+    for _titulo, largura, getter in colunas:
+        maior = max(maior, len(_quebrar_texto(str(getter(row) or ""), largura, 7.8)))
+    return max(26, min(maior, 3) * 10 + 12)
+
+
+def _quebrar_texto(texto, largura, tamanho):
+    limite = max(8, int(largura / (tamanho * 0.50)))
+    palavras = str(texto or "-").split()
+    linhas = []
+    atual = ""
+    for palavra in palavras:
+        tentativa = f"{atual} {palavra}".strip()
+        if len(tentativa) <= limite:
+            atual = tentativa
+        else:
+            if atual:
+                linhas.append(atual)
+            atual = palavra[:limite]
+    if atual:
+        linhas.append(atual)
+    return linhas or ["-"]
+
+
+def _retangulo(comandos, x, y, largura, altura, fill=None, stroke=None):
+    if fill:
+        comandos.append(f"{fill[0]} {fill[1]} {fill[2]} rg")
+    if stroke:
+        comandos.append(f"{stroke[0]} {stroke[1]} {stroke[2]} RG")
+    operador = "B" if fill and stroke else "f" if fill else "S"
+    comandos.append(f"{x:.2f} {y:.2f} {largura:.2f} {altura:.2f} re {operador}")
+
+
+def _linha(comandos, x1, y1, x2, y2, cor=(0, 0, 0)):
+    comandos.append(f"{cor[0]} {cor[1]} {cor[2]} RG")
+    comandos.append(f"{x1:.2f} {y1:.2f} m {x2:.2f} {y2:.2f} l S")
+
+
+def _texto(comandos, texto, x, y, tamanho, fonte="F1", cor=(0, 0, 0)):
+    comandos.append(f"{cor[0]} {cor[1]} {cor[2]} rg")
+    comandos.append(f"BT /{fonte} {tamanho} Tf {x:.2f} {y:.2f} Td ({_escape_pdf(str(texto)[:180])}) Tj ET")
+
+
+def _fmt(valor):
+    if valor is None or valor == "":
+        return "-"
+    try:
+        return f"{float(valor):.2f}".replace(".", ",")
+    except (TypeError, ValueError):
+        return str(valor)
 
 
 def _escape_pdf(texto):
