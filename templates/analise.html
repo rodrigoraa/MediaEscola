@@ -29,14 +29,15 @@
         <div>
             <span class="field-label">Exibir médias como</span>
             <div class="segmented">
-                <a href="{{ url_for('analise', boletim_id=boletim_id, modo='nota', visao=visao, detalhe=detalhe) }}" class="{% if modo == 'nota' %}active{% endif %}">Nota</a>
-                <a href="{{ url_for('analise', boletim_id=boletim_id, modo='porcentagem', visao=visao, detalhe=detalhe) }}" class="{% if modo == 'porcentagem' %}active{% endif %}">Porcentagem</a>
+                <a href="{{ url_for('analise', boletim_id=boletim_id, modo='nota', visao=visao, detalhe=detalhe, bimestre=bimestre) }}" class="{% if modo == 'nota' %}active{% endif %}">Nota</a>
+                <a href="{{ url_for('analise', boletim_id=boletim_id, modo='porcentagem', visao=visao, detalhe=detalhe, bimestre=bimestre) }}" class="{% if modo == 'porcentagem' %}active{% endif %}">Porcentagem</a>
             </div>
         </div>
 
         <input type="hidden" name="visao" value="{{ visao }}">
         <input type="hidden" name="modo" value="{{ modo }}">
         <input type="hidden" name="detalhe" value="{{ detalhe }}">
+        <input type="hidden" name="bimestre" value="{{ bimestre }}">
     </form>
 </section>
 
@@ -55,7 +56,7 @@
         {% else %}
             {% set detalhe_link = "aluno_bimestre" %}
         {% endif %}
-        <a class="{% if visao == codigo %}active{% endif %}" href="{{ url_for('analise', boletim_id=boletim_id, modo=modo, visao=codigo, detalhe=detalhe_link) }}">
+        <a class="{% if visao == codigo %}active{% endif %}" href="{{ url_for('analise', boletim_id=boletim_id, modo=modo, visao=codigo, detalhe=detalhe_link, bimestre=bimestre if codigo == 'bimestre' else '') }}">
             {{ titulo }}
         </a>
     {% endfor %}
@@ -108,29 +109,42 @@
             {% set detalhes = [
                 ("aluno_bimestre", "Média do aluno por bimestre"),
                 ("turma_bimestre", "Média da turma por bimestre"),
-                ("turma_disciplina", "Média da turma por disciplina")
+                ("turma_disciplina", "Média da turma por disciplina no bimestre")
             ] %}
             {% for codigo, titulo_detalhe in detalhes %}
-                <a class="{% if detalhe == codigo %}active{% endif %}" href="{{ url_for('analise', boletim_id=boletim_id, modo=modo, visao='bimestre', detalhe=codigo) }}">
+                <a class="{% if detalhe == codigo %}active{% endif %}" href="{{ url_for('analise', boletim_id=boletim_id, modo=modo, visao='bimestre', detalhe=codigo, bimestre=bimestre) }}">
                     {{ titulo_detalhe }}
                 </a>
             {% endfor %}
         </div>
 
+        <form method="get" class="bimestre-filter">
+            <input type="hidden" name="boletim_id" value="{{ boletim_id or '' }}">
+            <input type="hidden" name="modo" value="{{ modo }}">
+            <input type="hidden" name="visao" value="bimestre">
+            <input type="hidden" name="detalhe" value="{{ detalhe }}">
+            <label for="bimestre">Escolher bimestre</label>
+            <select id="bimestre" name="bimestre" onchange="this.form.submit()">
+                <option value="">Todos os bimestres</option>
+                {% for item in bimestres %}
+                    <option value="{{ item }}" {% if bimestre == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
         {% if detalhe == "aluno_bimestre" %}
-            {% set titulo = "Média do aluno por bimestre" %}
+            {% set titulo = "Média do aluno por bimestre" ~ (" - " ~ bimestre if bimestre else "") %}
             {% set linhas = analises.media_aluno_por_bimestre %}
             {% include "partials/tabela_aluno_bimestre.html" %}
         {% elif detalhe == "turma_bimestre" %}
-            {% set titulo = "Média da turma por bimestre" %}
+            {% set titulo = "Média da turma por bimestre" ~ (" - " ~ bimestre if bimestre else "") %}
             {% set linhas = analises.media_por_bimestre %}
             {% set primeira_coluna = "bimestre" %}
             {% include "partials/tabela_media.html" %}
         {% elif detalhe == "turma_disciplina" %}
-            {% set titulo = "Média da turma por disciplina" %}
-            {% set linhas = analises.media_por_disciplina %}
-            {% set primeira_coluna = "disciplina" %}
-            {% include "partials/tabela_media.html" %}
+            {% set titulo = "Média da turma por disciplina no bimestre" ~ (" - " ~ bimestre if bimestre else "") %}
+            {% set linhas = analises.media_disciplina_por_bimestre %}
+            {% include "partials/tabela_disciplina_bimestre.html" %}
         {% endif %}
     </section>
 {% elif visao == "disciplina" %}

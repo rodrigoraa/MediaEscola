@@ -2,8 +2,13 @@
 
 {% block content %}
 <section class="panel">
-    <h1>Dashboard</h1>
-    <p class="muted">Escolha uma área para continuar acompanhando o desempenho escolar.</p>
+    <div class="section-title">
+        <div>
+            <h1>Dashboard</h1>
+            <p class="muted">Visão inicial do acompanhamento escolar.</p>
+        </div>
+        <a class="button" href="{{ url_for('gerador_medias') }}">Abrir Gerador de Médias</a>
+    </div>
 </section>
 
 <section class="analysis-summary">

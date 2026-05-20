@@ -5,166 +5,172 @@
     <div class="section-title">
         <div>
             <h1>Gerador de Médias</h1>
-            <p class="muted">Combine filtros, escolha o tipo de cálculo e gere relatórios de desempenho.</p>
+            <p class="muted">Cálculos padronizados, com fórmula visível e filtros específicos para cada média.</p>
         </div>
     </div>
 
-    <form method="post" class="filters-panel">
-        <div>
-            <label>PDF / Turma importada</label>
-            <select name="boletim_id">
-                <option value="">Todos</option>
-                {% for boletim in boletins %}
-                    <option value="{{ boletim.id }}" {% if filtros.boletim_id == boletim.id %}selected{% endif %}>{{ boletim.nome_arquivo }}</option>
-                {% endfor %}
-            </select>
+    <form method="post" id="media-form">
+        <div class="media-option-groups">
+            {% for grupo in ["Médias da Turma", "Médias do Aluno", "Estatísticas"] %}
+                <section class="option-group">
+                    <h2>{{ grupo }}</h2>
+                    <div class="option-grid">
+                        {% for codigo, item in resultado.relatorios.items() %}
+                            {% if item.grupo == grupo %}
+                                <label class="media-option" title="{{ item.formula }}">
+                                    <input
+                                        type="radio"
+                                        name="relatorio"
+                                        value="{{ codigo }}"
+                                        data-filtros="{{ item.filtros|join(',') }}"
+                                        data-formula="{{ item.formula }}"
+                                        data-exemplo="{{ item.exemplo }}"
+                                        data-descricao="{{ item.descricao }}"
+                                        {% if resultado.relatorio == codigo %}checked{% endif %}
+                                    >
+                                    <strong>{{ item.titulo }}</strong>
+                                    <span>{{ item.descricao }}</span>
+                                </label>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endfor %}
         </div>
-        <div>
-            <label>Turma</label>
-            <select name="turma">
-                <option value="">Todas</option>
-                {% for turma in resultado.opcoes.turmas %}
-                    <option value="{{ turma }}" {% if filtros.turma == turma %}selected{% endif %}>{{ turma }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label>Aluno</label>
-            <select name="aluno">
-                <option value="">Todos</option>
-                {% for aluno in resultado.opcoes.alunos %}
-                    <option value="{{ aluno }}" {% if filtros.aluno == aluno %}selected{% endif %}>{{ aluno }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label>Disciplina</label>
-            <select name="disciplina">
-                <option value="">Todas</option>
-                {% for disciplina in resultado.opcoes.disciplinas %}
-                    <option value="{{ disciplina }}" {% if filtros.disciplina == disciplina %}selected{% endif %}>{{ disciplina }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label>Bimestre</label>
-            <select name="bimestre">
-                <option value="">Todos</option>
-                {% for bimestre in resultado.opcoes.bimestres %}
-                    <option value="{{ bimestre }}" {% if filtros.bimestre == bimestre %}selected{% endif %}>{{ bimestre }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label>Ano letivo</label>
-            <select name="ano_letivo">
-                <option value="">Todos</option>
-                {% for ano in resultado.opcoes.anos %}
-                    <option value="{{ ano }}" {% if filtros.ano_letivo == ano %}selected{% endif %}>{{ ano }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label>Tipo de cálculo</label>
-            <select name="tipo_calculo">
-                <option value="media_simples" {% if filtros.tipo_calculo == "media_simples" %}selected{% endif %}>Média aritmética simples</option>
-                <option value="media_ponderada" {% if filtros.tipo_calculo == "media_ponderada" %}selected{% endif %}>Média ponderada</option>
-                <option value="media_acumulada" {% if filtros.tipo_calculo == "media_acumulada" %}selected{% endif %}>Média acumulada</option>
-                <option value="descartar_menor" {% if filtros.tipo_calculo == "descartar_menor" %}selected{% endif %}>Descartar menor nota</option>
-            </select>
-        </div>
-        <div>
-            <label>Relatório</label>
-            <select name="relatorio">
-                <optgroup label="Turma">
-                    <option value="geral_turma" {% if filtros.relatorio == "geral_turma" %}selected{% endif %}>Média geral da turma</option>
-                    <option value="turma_bimestre" {% if filtros.relatorio == "turma_bimestre" %}selected{% endif %}>Turma por bimestre</option>
-                    <option value="turma_anual" {% if filtros.relatorio == "turma_anual" %}selected{% endif %}>Turma anual</option>
-                    <option value="turma_disciplina" {% if filtros.relatorio == "turma_disciplina" %}selected{% endif %}>Turma por disciplina</option>
-                    <option value="turma_disciplina_bimestre" {% if filtros.relatorio == "turma_disciplina_bimestre" %}selected{% endif %}>Turma por disciplina e bimestre</option>
-                    <option value="turma_area" {% if filtros.relatorio == "turma_area" %}selected{% endif %}>Turma por área do conhecimento</option>
-                </optgroup>
-                <optgroup label="Aluno">
-                    <option value="aluno_geral" {% if filtros.relatorio == "aluno_geral" %}selected{% endif %}>Média geral do aluno</option>
-                    <option value="aluno_bimestre" {% if filtros.relatorio == "aluno_bimestre" %}selected{% endif %}>Aluno por bimestre</option>
-                    <option value="aluno_anual" {% if filtros.relatorio == "aluno_anual" %}selected{% endif %}>Aluno anual</option>
-                    <option value="aluno_disciplina" {% if filtros.relatorio == "aluno_disciplina" %}selected{% endif %}>Aluno por disciplina</option>
-                    <option value="aluno_disciplina_bimestre" {% if filtros.relatorio == "aluno_disciplina_bimestre" %}selected{% endif %}>Aluno por disciplina e bimestre</option>
-                    <option value="aluno_acumulada" {% if filtros.relatorio == "aluno_acumulada" %}selected{% endif %}>Aluno acumulado</option>
-                </optgroup>
-                <optgroup label="Disciplina e bimestre">
-                    <option value="disciplina_geral" {% if filtros.relatorio == "disciplina_geral" %}selected{% endif %}>Disciplina na turma</option>
-                    <option value="disciplina_bimestre" {% if filtros.relatorio == "disciplina_bimestre" %}selected{% endif %}>Disciplina por bimestre</option>
-                    <option value="disciplina_aluno" {% if filtros.relatorio == "disciplina_aluno" %}selected{% endif %}>Disciplina por aluno</option>
-                    <option value="ranking_disciplina" {% if filtros.relatorio == "ranking_disciplina" %}selected{% endif %}>Ranking por disciplina</option>
-                    <option value="bimestre_geral" {% if filtros.relatorio == "bimestre_geral" %}selected{% endif %}>Bimestre da turma</option>
-                    <option value="bimestre_disciplina" {% if filtros.relatorio == "bimestre_disciplina" %}selected{% endif %}>Bimestre por disciplina</option>
-                    <option value="bimestre_aluno" {% if filtros.relatorio == "bimestre_aluno" %}selected{% endif %}>Bimestre por aluno</option>
-                    <option value="evolucao_turma" {% if filtros.relatorio == "evolucao_turma" %}selected{% endif %}>Evolução da turma</option>
-                    <option value="evolucao_aluno" {% if filtros.relatorio == "evolucao_aluno" %}selected{% endif %}>Evolução individual</option>
-                </optgroup>
-                <optgroup label="Risco e ranking">
-                    <option value="alunos_risco" {% if filtros.relatorio == "alunos_risco" %}selected{% endif %}>Alunos em risco</option>
-                    <option value="ranking_geral" {% if filtros.relatorio == "ranking_geral" %}selected{% endif %}>Ranking geral</option>
-                    <option value="ranking_bimestre" {% if filtros.relatorio == "ranking_bimestre" %}selected{% endif %}>Ranking por bimestre</option>
-                </optgroup>
-            </select>
-        </div>
-        <div>
-            <label>Situação</label>
-            <select name="situacao">
-                <option value="todos" {% if filtros.situacao == "todos" %}selected{% endif %}>Todos</option>
-                <option value="aprovado" {% if filtros.situacao == "aprovado" %}selected{% endif %}>Aprovados</option>
-                <option value="recuperação" {% if filtros.situacao == "recuperação" %}selected{% endif %}>Recuperação</option>
-                <option value="reprovado" {% if filtros.situacao == "reprovado" %}selected{% endif %}>Reprovados</option>
-            </select>
-        </div>
-        <div>
-            <label>Desempenho</label>
-            <select name="desempenho">
-                <option value="">Todos</option>
-                <option value="abaixo_media" {% if filtros.desempenho == "abaixo_media" %}selected{% endif %}>Abaixo da média</option>
-                <option value="acima_media" {% if filtros.desempenho == "acima_media" %}selected{% endif %}>Acima da média</option>
-            </select>
-        </div>
-        <div>
-            <label>Ordenação</label>
-            <select name="ordenacao">
-                <option value="">Ranking padrão</option>
-                <option value="maior_media" {% if filtros.ordenacao == "maior_media" %}selected{% endif %}>Maior média</option>
-                <option value="menor_media" {% if filtros.ordenacao == "menor_media" %}selected{% endif %}>Menor média</option>
-            </select>
-        </div>
-        <div>
-            <label>Média mínima</label>
-            <input name="media_minima" value="{{ filtros.media_minima }}">
-        </div>
-        <div>
-            <label>Limite recuperação</label>
-            <input name="limite_recuperacao" value="{{ filtros.limite_recuperacao }}">
-        </div>
-        <button type="submit">Calcular</button>
+
+        <section class="formula-box">
+            <h2>Como esta média é calculada</h2>
+            <p id="formula-descricao">{{ resultado.metadata.descricao }}</p>
+            <strong id="formula-texto">{{ resultado.metadata.formula }}</strong>
+            <small id="formula-exemplo">{{ resultado.metadata.exemplo }}</small>
+        </section>
+
+        <section class="filters-panel smart-filters">
+            <div data-filter="boletim_id">
+                <label>Arquivo analisado</label>
+                <select name="boletim_id" required>
+                    {% for boletim in boletins %}
+                        <option value="{{ boletim.id }}" {% if filtros.boletim_id == boletim.id %}selected{% endif %}>
+                            {{ boletim.nome_arquivo }}{% if boletim.criado_em %} - {{ boletim.criado_em }}{% endif %}
+                        </option>
+                    {% else %}
+                        <option value="">Nenhum PDF enviado</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div data-filter="turma">
+                <label>Turma</label>
+                <select name="turma">
+                    <option value="">Todas</option>
+                    {% for turma in resultado.opcoes.turmas %}
+                        <option value="{{ turma }}" {% if filtros.turma == turma %}selected{% endif %}>{{ turma }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div data-filter="aluno">
+                <label>Aluno</label>
+                <select name="aluno">
+                    <option value="">Todos</option>
+                    {% for aluno in resultado.opcoes.alunos %}
+                        <option value="{{ aluno }}" {% if filtros.aluno == aluno %}selected{% endif %}>{{ aluno }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div data-filter="disciplina">
+                <label>Disciplina</label>
+                <select name="disciplina">
+                    <option value="">Todas</option>
+                    {% for disciplina in resultado.opcoes.disciplinas %}
+                        <option value="{{ disciplina }}" {% if filtros.disciplina == disciplina %}selected{% endif %}>{{ disciplina }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div data-filter="bimestre">
+                <label>Bimestre</label>
+                <select name="bimestre">
+                    <option value="">Todos</option>
+                    {% for bimestre in resultado.opcoes.bimestres %}
+                        <option value="{{ bimestre }}" {% if filtros.bimestre == bimestre %}selected{% endif %}>{{ bimestre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div data-filter="ano_letivo">
+                <label>Ano letivo</label>
+                <select name="ano_letivo">
+                    <option value="">Todos</option>
+                    {% for ano in resultado.opcoes.anos %}
+                        <option value="{{ ano }}" {% if filtros.ano_letivo == ano %}selected{% endif %}>{{ ano }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div data-filter="tipo_calculo">
+                <label>Tipo de cálculo</label>
+                <select name="tipo_calculo">
+                    <option value="media_simples" {% if filtros.tipo_calculo == "media_simples" %}selected{% endif %}>Média simples</option>
+                    <option value="media_ponderada" {% if filtros.tipo_calculo == "media_ponderada" %}selected{% endif %}>Média ponderada</option>
+                    <option value="descartar_menor" {% if filtros.tipo_calculo == "descartar_menor" %}selected{% endif %}>Descartar menor nota</option>
+                </select>
+            </div>
+
+            <div data-filter="desempenho">
+                <label>Desempenho</label>
+                <select name="desempenho">
+                    <option value="">Todos</option>
+                    <option value="abaixo_media" {% if filtros.desempenho == "abaixo_media" %}selected{% endif %}>Abaixo da média</option>
+                    <option value="acima_media" {% if filtros.desempenho == "acima_media" %}selected{% endif %}>Acima da média</option>
+                </select>
+            </div>
+
+            <div data-filter="ordenacao">
+                <label>Ordenação</label>
+                <select name="ordenacao">
+                    <option value="">Ranking padrão</option>
+                    <option value="maior_media" {% if filtros.ordenacao == "maior_media" %}selected{% endif %}>Maior média</option>
+                    <option value="menor_media" {% if filtros.ordenacao == "menor_media" %}selected{% endif %}>Menor média</option>
+                </select>
+            </div>
+
+            <div data-filter="media_minima">
+                <label>Média mínima</label>
+                <input name="media_minima" value="{{ filtros.media_minima }}">
+            </div>
+
+            <div data-filter="limite_recuperacao">
+                <label>Limite recuperação</label>
+                <input name="limite_recuperacao" value="{{ filtros.limite_recuperacao }}">
+            </div>
+
+            <button type="submit">Calcular</button>
+        </section>
     </form>
 </section>
 
 <section class="analysis-summary">
-    <article class="metric"><span>Média geral</span><strong>{{ resultado.estatisticas.media_geral|media("nota") }}</strong></article>
+    <article class="metric"><span>Notas válidas</span><strong>{{ resultado.estatisticas.notas_validas }}</strong></article>
+    <article class="metric"><span>Média das notas filtradas</span><strong>{{ resultado.estatisticas.media_geral|media("nota") }}</strong></article>
     <article class="metric"><span>Maior nota</span><strong>{{ resultado.estatisticas.maior_nota|media("nota") }}</strong></article>
     <article class="metric"><span>Menor nota</span><strong>{{ resultado.estatisticas.menor_nota|media("nota") }}</strong></article>
     <article class="metric"><span>Mediana</span><strong>{{ resultado.estatisticas.mediana|media("nota") }}</strong></article>
     <article class="metric"><span>Desvio padrão</span><strong>{{ resultado.estatisticas.desvio_padrao|media("nota") }}</strong></article>
-    <article class="metric"><span>Aprovação</span><strong>{{ resultado.estatisticas.percentual_aprovacao }}%</strong></article>
 </section>
 
 <section class="grid two">
     <article class="panel">
-        <h2>Evolução por bimestre</h2>
+        <h2>Média por bimestre</h2>
         <div class="bar-chart">
             {% for item in resultado.graficos.bimestres %}
                 <div>
                     <span>{{ item.bimestre or "Sem bimestre" }}</span>
                     <strong style="width: {{ (item.media_calculada or 0) * 10 }}%">{{ item.media_calculada|media("nota") }}</strong>
                 </div>
+            {% else %}
+                <p class="muted">Sem dados para gráfico.</p>
             {% endfor %}
         </div>
     </article>
@@ -176,6 +182,8 @@
                     <span>{{ item.disciplina }}</span>
                     <strong style="width: {{ (item.media_calculada or 0) * 10 }}%">{{ item.media_calculada|media("nota") }}</strong>
                 </div>
+            {% else %}
+                <p class="muted">Sem dados para gráfico.</p>
             {% endfor %}
         </div>
     </article>
@@ -183,13 +191,19 @@
 
 <section class="panel">
     <div class="section-title">
-        <h2>Resultados</h2>
+        <div>
+            <h2>Resultados</h2>
+            <p class="muted">Resultado calculado por: {{ resultado.metadata.formula }}.</p>
+        </div>
         <div class="actions">
             {% for formato, label in [("pdf", "PDF"), ("excel", "Excel"), ("csv", "CSV")] %}
                 <form method="post" action="{{ url_for('exportar_medias', formato=formato) }}">
                     {% for chave, valor in filtros.items() %}
-                        <input type="hidden" name="{{ chave }}" value="{{ valor or '' }}">
+                        {% if chave != "relatorio" %}
+                            <input type="hidden" name="{{ chave }}" value="{{ valor or '' }}">
+                        {% endif %}
                     {% endfor %}
+                    <input type="hidden" name="relatorio" value="{{ resultado.relatorio }}">
                     <button type="submit" class="ghost">Exportar {{ label }}</button>
                 </form>
             {% endfor %}
@@ -208,6 +222,7 @@
                         <th>Bimestre</th>
                         <th>Média calculada</th>
                         <th>Situação</th>
+                        <th>Qtd. notas</th>
                         <th>Observação</th>
                     </tr>
                 </thead>
@@ -221,14 +236,39 @@
                             <td>{{ linha.bimestre }}</td>
                             <td><strong>{{ linha.media_calculada|media("nota") }}</strong></td>
                             <td>{{ linha.situacao }}</td>
+                            <td>{{ linha.quantidade }}</td>
                             <td>{{ linha.observacao }}</td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="8">Nenhum resultado encontrado para os filtros selecionados.</td></tr>
+                        <tr><td colspan="9">Nenhum resultado encontrado para os filtros selecionados.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </section>
+
+<script>
+function atualizarFiltrosMedias() {
+    const selecionado = document.querySelector('input[name="relatorio"]:checked');
+    if (!selecionado) return;
+
+    const filtros = new Set((selecionado.dataset.filtros || "").split(",").filter(Boolean));
+    ["tipo_calculo", "desempenho", "ordenacao", "media_minima", "limite_recuperacao"].forEach((nome) => filtros.add(nome));
+
+    document.querySelectorAll("[data-filter]").forEach((campo) => {
+        const nome = campo.dataset.filter;
+        campo.hidden = !filtros.has(nome) && nome !== "boletim_id";
+    });
+
+    document.getElementById("formula-descricao").textContent = selecionado.dataset.descricao;
+    document.getElementById("formula-texto").textContent = selecionado.dataset.formula;
+    document.getElementById("formula-exemplo").textContent = selecionado.dataset.exemplo;
+}
+
+document.querySelectorAll('input[name="relatorio"]').forEach((input) => {
+    input.addEventListener("change", atualizarFiltrosMedias);
+});
+atualizarFiltrosMedias();
+</script>
 {% endblock %}

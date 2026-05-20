@@ -8,7 +8,10 @@
 </head>
 <body>
     <header class="topbar">
-        <a href="{{ url_for('dashboard') if usuario_logado else url_for('login') }}" class="brand">Analisador de Boletins Escolares</a>
+        <a href="{{ url_for('dashboard') if usuario_logado else url_for('login') }}" class="brand">
+            <span class="brand-mark">ME</span>
+            <span>MediaEscola</span>
+        </a>
         {% if usuario_logado %}
             <nav>
                 <a href="{{ url_for('dashboard') }}">Dashboard</a>
@@ -27,13 +30,21 @@
     <main class="container {% if usuario_logado %}app-shell{% endif %}">
         {% if usuario_logado %}
             <aside class="sidebar">
-                <strong>{{ usuario_logado.nome }}</strong>
-                <span>{{ usuario_logado.tipo_usuario|replace("_", " ")|title }}</span>
-                <a href="{{ url_for('dashboard') }}">Início</a>
-                <a href="{{ url_for('gerador_medias') }}">Gerador de Médias</a>
-                <a href="{{ url_for('analise') }}">Análises rápidas</a>
-                <a href="{{ url_for('index') }}">Enviar PDF</a>
-                <a href="{{ url_for('lancar_nota') }}">Lançar nota</a>
+                <div class="user-box">
+                    <strong>{{ usuario_logado.nome }}</strong>
+                    <span>{{ usuario_logado.tipo_usuario|replace("_", " ")|title }}</span>
+                </div>
+                <div class="sidebar-group">
+                    <span>Boletins</span>
+                    <a href="{{ url_for('dashboard') }}">Início</a>
+                    <a href="{{ url_for('index') }}">Enviar PDF</a>
+                    <a href="{{ url_for('lancar_nota') }}">Lançar nota</a>
+                </div>
+                <div class="sidebar-group">
+                    <span>Desempenho</span>
+                    <a href="{{ url_for('gerador_medias') }}">Gerador de Médias</a>
+                    <a href="{{ url_for('analise') }}">Análises rápidas</a>
+                </div>
             </aside>
         {% endif %}
         <section class="content-area">

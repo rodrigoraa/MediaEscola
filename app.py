@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import sqlite3
 import uuid
@@ -47,6 +48,7 @@ def load_env_file(path):
 
 
 load_env_file(BASE_DIR / ".env")
+logging.basicConfig(level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
 
 
 def env_path(name, default):
@@ -142,7 +144,6 @@ def carregar_usuario_logado():
         return None
 
     if not g.usuario:
-        flash("Sua sessão expirou ou você precisa fazer login.")
         return redirect(url_for("login", next=request.path))
     return None
 
@@ -170,11 +171,19 @@ def arquivo_permitido(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def buscar_boletins():
+def buscar_boletins(apenas_arquivos=False):
+    where = "WHERE caminho_arquivo IS NOT NULL AND caminho_arquivo <> ''" if apenas_arquivos else ""
     with get_db() as conn:
         return conn.execute(
-            "SELECT id, nome_arquivo, criado_em FROM boletins ORDER BY id DESC"
+            f"SELECT id, nome_arquivo, criado_em FROM boletins {where} ORDER BY id DESC"
         ).fetchall()
+
+
+def definir_boletim_padrao(filtros, boletins):
+    # O Gerador de Médias deve trabalhar sempre sobre uma importação específica.
+    if not filtros.get("boletim_id") and boletins:
+        filtros["boletim_id"] = boletins[0]["id"]
+    return filtros
 
 
 def buscar_notas(boletim_id=None):
@@ -224,7 +233,7 @@ def filtros_medias_da_request():
         "situacao": request.values.get("situacao", "todos"),
         "desempenho": request.values.get("desempenho", ""),
         "ordenacao": request.values.get("ordenacao", ""),
-        "relatorio": request.values.get("relatorio", "geral_turma"),
+        "relatorio": request.values.get("relatorio", "media_geral_turma"),
         "media_minima": request.values.get("media_minima", config.get("media_minima", "6.0")),
         "limite_recuperacao": request.values.get("limite_recuperacao", config.get("limite_recuperacao", "4.0")),
     }
@@ -492,6 +501,7 @@ def analise():
     modo = request.args.get("modo", "nota")
     visao = request.args.get("visao", "sala")
     detalhe = request.args.get("detalhe", "aluno_bimestre")
+    bimestre = request.args.get("bimestre", "")
     detalhes_bimestre = {"aluno_bimestre", "turma_bimestre", "turma_disciplina"}
     detalhes_disciplina = {
         "aluno_disciplina",
@@ -514,6 +524,19 @@ def analise():
 
     notas = buscar_notas(boletim_id)
     analises = gerar_analises(notas)
+    bimestres = [row["bimestre"] for row in analises.get("media_por_bimestre", []) if row.get("bimestre")]
+
+    if visao == "bimestre" and bimestre:
+        analises = dict(analises)
+        analises["media_aluno_por_bimestre"] = [
+            row for row in analises["media_aluno_por_bimestre"] if row.get("bimestre") == bimestre
+        ]
+        analises["media_por_bimestre"] = [
+            row for row in analises["media_por_bimestre"] if row.get("bimestre") == bimestre
+        ]
+        analises["media_disciplina_por_bimestre"] = [
+            row for row in analises["media_disciplina_por_bimestre"] if row.get("bimestre") == bimestre
+        ]
 
     return render_template(
         "analise.html",
@@ -522,6 +545,8 @@ def analise():
         modo=modo,
         visao=visao,
         detalhe=detalhe,
+        bimestre=bimestre,
+        bimestres=bimestres,
         analises=analises,
         total_registros=len(notas),
     )
@@ -565,15 +590,24 @@ def exportar_excel():
 @exigir_permissao("medias")
 def gerador_medias():
     filtros = filtros_medias_da_request()
+    boletins = buscar_boletins(apenas_arquivos=True)
+    filtros = definir_boletim_padrao(filtros, boletins)
     notas = buscar_notas(filtros.get("boletim_id"))
     resultado = calcular_gerador_medias(notas, filtros)
-    return render_template("medias/index.html", filtros=filtros, resultado=resultado, boletins=buscar_boletins())
+    filtros["relatorio"] = resultado["relatorio"]
+    return render_template("medias/index.html", filtros=filtros, resultado=resultado, boletins=boletins)
 
 
 @app.route("/medias/exportar/<formato>", methods=["POST"])
 @exigir_permissao("medias")
 def exportar_medias(formato):
     filtros = filtros_medias_da_request()
+    boletins = buscar_boletins(apenas_arquivos=True)
+    filtros = definir_boletim_padrao(filtros, boletins)
+    if not filtros.get("boletim_id"):
+        flash("Envie um PDF antes de exportar resultados do Gerador de Médias.")
+        return redirect(url_for("gerador_medias"))
+
     notas = buscar_notas(filtros.get("boletim_id"))
     resultado = calcular_gerador_medias(notas, filtros)
 

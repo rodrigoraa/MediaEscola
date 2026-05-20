@@ -2,22 +2,32 @@
 
 {% block content %}
 <section class="login-page">
-    <form method="post" class="login-card">
-        <h1>Entrar no sistema</h1>
-        <p class="muted">Use seu email e senha para acessar os boletins e médias.</p>
+    <div class="login-shell">
+        <section class="login-panel">
+            <span class="brand-mark large">ME</span>
+            <h1>MediaEscola</h1>
+            <p>Boletins, médias e acompanhamento escolar em um painel único.</p>
+        </section>
 
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" value="{{ email or '' }}" required autofocus>
+        <form method="post" class="login-card">
+            <div>
+                <h1>Entrar</h1>
+                <p class="muted">Acesse com seu usuário cadastrado.</p>
+            </div>
 
-        <label for="senha">Senha</label>
-        <input id="senha" name="senha" type="password" required>
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" value="{{ email or '' }}" required autofocus>
 
-        <label class="check-line">
-            <input type="checkbox" name="lembrar" value="1">
-            Lembrar-me
-        </label>
+            <label for="senha">Senha</label>
+            <input id="senha" name="senha" type="password" required>
 
-        <button type="submit">Entrar</button>
-    </form>
+            <label class="check-line">
+                <input type="checkbox" name="lembrar" value="1">
+                Lembrar-me
+            </label>
+
+            <button type="submit">Entrar</button>
+        </form>
+    </div>
 </section>
 {% endblock %}
