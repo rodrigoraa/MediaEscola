@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <div class="section-title">
+        <div>
+            <h1>Análise dos boletins</h1>
+            <p class="muted">{{ total_registros }} registros considerados.</p>
+        </div>
+        <div class="actions">
+            <a class="button ghost" href="{{ url_for('relatorio', boletim_id=boletim_id, modo=modo) }}">Relatório HTML</a>
+            <a class="button" href="{{ url_for('exportar_excel', boletim_id=boletim_id) }}">Exportar Excel</a>
+        </div>
+    </div>
+
+    <form method="get" class="analysis-controls">
+        <div>
+            <label for="boletim_id">PDF analisado</label>
+            <select id="boletim_id" name="boletim_id" onchange="this.form.submit()">
+                <option value="">Todos os PDFs salvos</option>
+                {% for boletim in boletins %}
+                    <option value="{{ boletim.id }}" {% if boletim_id == boletim.id %}selected{% endif %}>
+                        {{ boletim.nome_arquivo }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <span class="field-label">Exibir médias como</span>
+            <div class="segmented">
+                <a href="{{ url_for('analise', boletim_id=boletim_id, modo='nota', visao=visao, detalhe=detalhe) }}" class="{% if modo == 'nota' %}active{% endif %}">Nota</a>
+                <a href="{{ url_for('analise', boletim_id=boletim_id, modo='porcentagem', visao=visao, detalhe=detalhe) }}" class="{% if modo == 'porcentagem' %}active{% endif %}">Porcentagem</a>
+            </div>
+        </div>
+
+        <input type="hidden" name="visao" value="{{ visao }}">
+        <input type="hidden" name="modo" value="{{ modo }}">
+        <input type="hidden" name="detalhe" value="{{ detalhe }}">
+    </form>
+</section>
+
+<section class="view-switcher">
+    {% set visoes = [
+        ("sala", "Média da sala"),
+        ("aluno", "Média do aluno no ano"),
+        ("bimestre", "Média por bimestre"),
+        ("disciplina", "Média por disciplina")
+    ] %}
+    {% for codigo, titulo in visoes %}
+        {% if codigo == "disciplina" %}
+            {% set detalhe_link = "aluno_disciplina" %}
+        {% elif codigo == "bimestre" %}
+            {% set detalhe_link = "aluno_bimestre" %}
+        {% else %}
+            {% set detalhe_link = "aluno_bimestre" %}
+        {% endif %}
+        <a class="{% if visao == codigo %}active{% endif %}" href="{{ url_for('analise', boletim_id=boletim_id, modo=modo, visao=codigo, detalhe=detalhe_link) }}">
+            {{ titulo }}
+        </a>
+    {% endfor %}
+</section>
+
+<section class="analysis-summary">
+    <article class="metric">
+        <span>Média da sala</span>
+        <strong>{{ analises.media_geral_turma|media(modo) }}</strong>
+    </article>
+    <article class="metric">
+        <span>Alunos abaixo de 6,0</span>
+        <strong>{{ analises.alunos_abaixo_media|length }}</strong>
+    </article>
+    <article class="metric">
+        <span>Disciplinas analisadas</span>
+        <strong>{{ analises.media_por_disciplina|length }}</strong>
+    </article>
+</section>
+
+{% if visao == "sala" %}
+    <section class="panel">
+        <h2>Média da sala</h2>
+        <div class="score-display">
+            <span>{{ analises.media_geral_turma|media(modo) }}</span>
+        </div>
+
+        <div class="grid two">
+            {% set titulo = "Melhores médias" %}
+            {% set linhas = analises.melhores_medias %}
+            {% set primeira_coluna = "aluno" %}
+            {% include "partials/tabela_media.html" %}
+
+            {% set titulo = "Alunos abaixo da média" %}
+            {% set linhas = analises.alunos_abaixo_media %}
+            {% set primeira_coluna = "aluno" %}
+            {% include "partials/tabela_media.html" %}
+        </div>
+    </section>
+{% elif visao == "aluno" %}
+    <section class="panel">
+        {% set titulo = "Média do aluno no ano" %}
+        {% set linhas = analises.media_por_aluno %}
+        {% set primeira_coluna = "aluno" %}
+        {% include "partials/tabela_media.html" %}
+    </section>
+{% elif visao == "bimestre" %}
+    <section class="panel">
+        <div class="detail-switcher">
+            {% set detalhes = [
+                ("aluno_bimestre", "Média do aluno por bimestre"),
+                ("turma_bimestre", "Média da turma por bimestre"),
+                ("turma_disciplina", "Média da turma por disciplina")
+            ] %}
+            {% for codigo, titulo_detalhe in detalhes %}
+                <a class="{% if detalhe == codigo %}active{% endif %}" href="{{ url_for('analise', boletim_id=boletim_id, modo=modo, visao='bimestre', detalhe=codigo) }}">
+                    {{ titulo_detalhe }}
+                </a>
+            {% endfor %}
+        </div>
+
+        {% if detalhe == "aluno_bimestre" %}
+            {% set titulo = "Média do aluno por bimestre" %}
+            {% set linhas = analises.media_aluno_por_bimestre %}
+            {% include "partials/tabela_aluno_bimestre.html" %}
+        {% elif detalhe == "turma_bimestre" %}
+            {% set titulo = "Média da turma por bimestre" %}
+            {% set linhas = analises.media_por_bimestre %}
+            {% set primeira_coluna = "bimestre" %}
+            {% include "partials/tabela_media.html" %}
+        {% elif detalhe == "turma_disciplina" %}
+            {% set titulo = "Média da turma por disciplina" %}
+            {% set linhas = analises.media_por_disciplina %}
+            {% set primeira_coluna = "disciplina" %}
+            {% include "partials/tabela_media.html" %}
+        {% endif %}
+    </section>
+{% elif visao == "disciplina" %}
+    <section class="panel">
+        <div class="detail-switcher">
+            {% set detalhes_disciplina = [
+                ("aluno_disciplina", "Média dos alunos por disciplina"),
+                ("turma_disciplina", "Média da turma por disciplina"),
+                ("geral_disciplina", "Média geral por disciplina"),
+                ("disciplina_bimestre", "Disciplina por bimestre"),
+                ("menor_rendimento", "Menor rendimento")
+            ] %}
+            {% for codigo, titulo_detalhe in detalhes_disciplina %}
+                <a class="{% if detalhe == codigo %}active{% endif %}" href="{{ url_for('analise', boletim_id=boletim_id, modo=modo, visao='disciplina', detalhe=codigo) }}">
+                    {{ titulo_detalhe }}
+                </a>
+            {% endfor %}
+        </div>
+
+        {% if detalhe == "aluno_disciplina" %}
+            {% set titulo = "Média dos alunos por disciplina" %}
+            {% set linhas = analises.media_aluno_por_disciplina %}
+            {% include "partials/tabela_aluno_disciplina.html" %}
+        {% elif detalhe == "turma_disciplina" %}
+            {% set titulo = "Média da turma por disciplina" %}
+            {% set linhas = analises.media_por_disciplina %}
+            {% set primeira_coluna = "disciplina" %}
+            {% include "partials/tabela_media.html" %}
+        {% elif detalhe == "geral_disciplina" %}
+            {% set titulo = "Média geral por disciplina" %}
+            {% set linhas = analises.resumo_geral_por_disciplina %}
+            {% include "partials/tabela_resumo_disciplina.html" %}
+        {% elif detalhe == "disciplina_bimestre" %}
+            {% set titulo = "Disciplina por bimestre" %}
+            {% set linhas = analises.media_disciplina_por_bimestre %}
+            {% include "partials/tabela_disciplina_bimestre.html" %}
+        {% elif detalhe == "menor_rendimento" %}
+            {% set titulo = "Disciplinas com menor rendimento" %}
+            {% set linhas = analises.disciplinas_menor_rendimento %}
+            {% set primeira_coluna = "disciplina" %}
+            {% include "partials/tabela_media.html" %}
+        {% endif %}
+    </section>
+{% endif %}
+{% endblock %}

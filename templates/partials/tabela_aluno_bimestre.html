@@ -1,0 +1,36 @@
+<article class="table-card">
+    <div class="section-title table-title">
+        <h2>{{ titulo }}</h2>
+        {% if linhas %}
+            <span class="pill">{{ linhas|length }} itens</span>
+        {% endif %}
+    </div>
+
+    {% if linhas %}
+        <input class="table-search" type="search" placeholder="Buscar aluno ou bimestre" oninput="filtrarTabelaAnalise(this)">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Aluno</th>
+                        <th>Bimestre</th>
+                        <th>Média</th>
+                        <th>Registros</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in linhas %}
+                        <tr>
+                            <td>{{ linha.aluno }}</td>
+                            <td>{{ linha.bimestre }}</td>
+                            <td><strong>{{ linha.media|media(modo) }}</strong></td>
+                            <td>{{ linha.quantidade }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="muted">Sem dados para esta média.</p>
+    {% endif %}
+</article>

@@ -1,0 +1,38 @@
+{% set blocos = [
+    ("Média por aluno", analises.media_por_aluno),
+    ("Média por disciplina", analises.media_por_disciplina),
+    ("Média por bimestre", analises.media_por_bimestre),
+    ("Alunos abaixo da média", analises.alunos_abaixo_media),
+    ("Melhores médias", analises.melhores_medias),
+    ("Disciplinas com menor rendimento", analises.disciplinas_menor_rendimento)
+] %}
+
+{% for titulo, linhas in blocos %}
+    <article class="panel compact">
+        <h2>{{ titulo }}</h2>
+        {% if linhas %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            {% for coluna in linhas[0].keys() %}
+                                <th>{{ coluna|replace("_", " ")|title }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for linha in linhas %}
+                            <tr>
+                                {% for valor in linha.values() %}
+                                    <td>{{ valor }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="muted">Sem dados para este indicador.</p>
+        {% endif %}
+    </article>
+{% endfor %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel narrow">
+    <h1>Alterar senha</h1>
+    <form method="post" class="upload-form">
+        <label for="nova_senha">Nova senha</label>
+        <input id="nova_senha" name="nova_senha" type="password" minlength="6" required>
+        <button type="submit">Atualizar senha</button>
+    </form>
+</section>
+{% endblock %}

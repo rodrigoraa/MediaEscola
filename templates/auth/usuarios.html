@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <h1>Usuários</h1>
+    <form method="post" class="form-grid">
+        <div>
+            <label>Nome</label>
+            <input name="nome" required>
+        </div>
+        <div>
+            <label>Email</label>
+            <input name="email" type="email" required>
+        </div>
+        <div>
+            <label>Senha inicial</label>
+            <input name="senha" type="password" required>
+        </div>
+        <div>
+            <label>Tipo</label>
+            <select name="tipo_usuario" required>
+                <option value="administrador">Administrador</option>
+                <option value="coordenacao">Coordenação</option>
+                <option value="professor">Professor</option>
+            </select>
+        </div>
+        <div>
+            <label>Status</label>
+            <select name="ativo">
+                <option value="1">Ativo</option>
+                <option value="0">Inativo</option>
+            </select>
+        </div>
+        <div>
+            <label>Turmas do professor</label>
+            <input name="turmas_permitidas" placeholder="Ex.: 2º Ano A, 3º Ano B">
+        </div>
+        <div>
+            <label>Disciplinas do professor</label>
+            <input name="disciplinas_permitidas" placeholder="Ex.: Matemática, Ciências">
+        </div>
+        <button type="submit">Criar usuário</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Usuários cadastrados</h2>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Tipo</th>
+                    <th>Turmas</th>
+                    <th>Disciplinas</th>
+                    <th>Status</th>
+                    <th>Último login</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usuario in usuarios %}
+                    <tr>
+                        <form method="post" action="{{ url_for('editar_usuario', usuario_id=usuario.id) }}">
+                            <td><input name="nome" value="{{ usuario.nome }}"></td>
+                            <td><input name="email" value="{{ usuario.email }}"></td>
+                            <td>
+                                <select name="tipo_usuario">
+                                    <option value="administrador" {% if usuario.tipo_usuario == "administrador" %}selected{% endif %}>Administrador</option>
+                                    <option value="coordenacao" {% if usuario.tipo_usuario == "coordenacao" %}selected{% endif %}>Coordenação</option>
+                                    <option value="professor" {% if usuario.tipo_usuario == "professor" %}selected{% endif %}>Professor</option>
+                                </select>
+                            </td>
+                            <td><input name="turmas_permitidas" value="{{ usuario.turmas_permitidas or '' }}"></td>
+                            <td><input name="disciplinas_permitidas" value="{{ usuario.disciplinas_permitidas or '' }}"></td>
+                            <td>
+                                <select name="ativo">
+                                    <option value="1" {% if usuario.ativo %}selected{% endif %}>Ativo</option>
+                                    <option value="0" {% if not usuario.ativo %}selected{% endif %}>Inativo</option>
+                                </select>
+                            </td>
+                            <td>{{ usuario.ultimo_login or "-" }}</td>
+                            <td><button type="submit">Salvar</button></td>
+                        </form>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

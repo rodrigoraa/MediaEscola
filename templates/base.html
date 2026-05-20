@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Analisador de Boletins Escolares</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <a href="{{ url_for('dashboard') if usuario_logado else url_for('login') }}" class="brand">Analisador de Boletins Escolares</a>
+        {% if usuario_logado %}
+            <nav>
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                {% if tem_permissao(usuario_logado, "upload") %}<a href="{{ url_for('index') }}">Upload</a>{% endif %}
+                {% if tem_permissao(usuario_logado, "upload") %}<a href="{{ url_for('lancar_nota') }}">Lançar nota</a>{% endif %}
+                {% if tem_permissao(usuario_logado, "analises") %}<a href="{{ url_for('analise') }}">Análises</a>{% endif %}
+                {% if tem_permissao(usuario_logado, "medias") %}<a href="{{ url_for('gerador_medias') }}">Gerador de Médias</a>{% endif %}
+                {% if tem_permissao(usuario_logado, "usuarios") %}<a href="{{ url_for('usuarios') }}">Usuários</a>{% endif %}
+                {% if tem_permissao(usuario_logado, "configuracoes") %}<a href="{{ url_for('configuracoes') }}">Configurações</a>{% endif %}
+                <a href="{{ url_for('alterar_senha_view') }}">Senha</a>
+                <a href="{{ url_for('logout') }}">Sair</a>
+            </nav>
+        {% endif %}
+    </header>
+
+    <main class="container {% if usuario_logado %}app-shell{% endif %}">
+        {% if usuario_logado %}
+            <aside class="sidebar">
+                <strong>{{ usuario_logado.nome }}</strong>
+                <span>{{ usuario_logado.tipo_usuario|replace("_", " ")|title }}</span>
+                <a href="{{ url_for('dashboard') }}">Início</a>
+                <a href="{{ url_for('gerador_medias') }}">Gerador de Médias</a>
+                <a href="{{ url_for('analise') }}">Análises rápidas</a>
+                <a href="{{ url_for('index') }}">Enviar PDF</a>
+                <a href="{{ url_for('lancar_nota') }}">Lançar nota</a>
+            </aside>
+        {% endif %}
+        <section class="content-area">
+        {% with mensagens = get_flashed_messages() %}
+            {% if mensagens %}
+                <div class="alerts">
+                    {% for mensagem in mensagens %}
+                        <p>{{ mensagem }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+        </section>
+    </main>
+
+    <script>
+    function filtrarTabelaAnalise(input) {
+        const termo = input.value.trim().toLowerCase();
+        const bloco = input.closest(".table-card") || input.closest(".panel") || document;
+        const tabela = bloco.querySelector("tbody");
+        if (!tabela) return;
+        tabela.querySelectorAll("tr").forEach((linha) => {
+            linha.hidden = termo && !linha.innerText.toLowerCase().includes(termo);
+        });
+    }
+    </script>
+</body>
+</html>

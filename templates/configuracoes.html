@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel narrow">
+    <h1>Configurações do sistema</h1>
+    <form method="post" class="upload-form">
+        <label for="media_minima">Média mínima padrão</label>
+        <input id="media_minima" name="media_minima" value="{{ config.media_minima or '6.0' }}">
+
+        <label for="limite_recuperacao">Limite mínimo para recuperação</label>
+        <input id="limite_recuperacao" name="limite_recuperacao" value="{{ config.limite_recuperacao or '4.0' }}">
+
+        <button type="submit">Salvar configurações</button>
+    </form>
+</section>
+{% endblock %}

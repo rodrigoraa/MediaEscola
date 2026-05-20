@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <h1>Enviar boletim em PDF</h1>
+    <form method="post" enctype="multipart/form-data" class="upload-form">
+        <label for="pdf">Arquivo PDF da turma</label>
+        <input type="file" id="pdf" name="pdf" accept="application/pdf" required>
+        <button type="submit">Ler PDF</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Boletins salvos</h2>
+    {% if boletins %}
+        <div class="list">
+            {% for boletim in boletins %}
+                <a href="{{ url_for('analise', boletim_id=boletim.id) }}">
+                    <strong>{{ boletim.nome_arquivo }}</strong>
+                    <span>{{ boletim.criado_em }}</span>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="muted">Nenhum boletim salvo ainda.</p>
+    {% endif %}
+</section>
+{% endblock %}

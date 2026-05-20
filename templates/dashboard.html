@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <h1>Dashboard</h1>
+    <p class="muted">Escolha uma área para continuar acompanhando o desempenho escolar.</p>
+</section>
+
+<section class="analysis-summary">
+    <a class="metric link-card" href="{{ url_for('gerador_medias') }}">
+        <span>Módulo completo</span>
+        <strong>Gerador de Médias</strong>
+    </a>
+    <a class="metric link-card" href="{{ url_for('index') }}">
+        <span>Importação</span>
+        <strong>Enviar PDF</strong>
+    </a>
+    <a class="metric link-card" href="{{ url_for('analise') }}">
+        <span>Consultas</span>
+        <strong>Análises rápidas</strong>
+    </a>
+</section>
+{% endblock %}

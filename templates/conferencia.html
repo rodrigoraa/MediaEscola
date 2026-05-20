@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel wide">
+    <div class="section-title">
+        <div>
+            <h1>Conferir dados extraídos</h1>
+            <p class="muted">Revise e ajuste as informações antes de salvar no banco.</p>
+        </div>
+        <button type="button" onclick="adicionarLinha()">Adicionar linha</button>
+    </div>
+
+    <div class="analysis-summary compact-summary">
+        <article class="metric">
+            <span>Registros</span>
+            <strong>{{ resumo.total_registros }}</strong>
+        </article>
+        <article class="metric">
+            <span>Alunos</span>
+            <strong>{{ resumo.total_alunos }}</strong>
+        </article>
+        <article class="metric">
+            <span>Disciplinas</span>
+            <strong>{{ resumo.total_disciplinas }}</strong>
+        </article>
+    </div>
+
+    <div class="review-tools">
+        <label for="filtro-tabela">Buscar na conferência</label>
+        <input id="filtro-tabela" type="search" placeholder="Digite aluno, disciplina, bimestre ou situação" oninput="filtrarLinhas(this.value)">
+    </div>
+
+    <form method="post">
+        <div class="table-wrap review-table-wrap">
+            <table id="tabela-conferencia" class="review-table">
+                <thead>
+                    <tr>
+                        <th>Aluno</th>
+                        <th>Disciplina</th>
+                        <th>Bimestre</th>
+                        <th>Nota</th>
+                        <th>Média final</th>
+                        <th>Situação</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in dados %}
+                        <tr>
+                            <td><input name="nome_aluno" value="{{ linha.nome_aluno }}"></td>
+                            <td><input name="disciplina" value="{{ linha.disciplina }}"></td>
+                            <td><input name="bimestre" value="{{ linha.bimestre }}"></td>
+                            <td><input name="nota" value="{{ linha.nota }}"></td>
+                            <td><input name="media_final" value="{{ linha.media_final }}"></td>
+                            <td><input name="situacao" value="{{ linha.situacao }}"></td>
+                            <input type="hidden" name="turma" value="{{ linha.turma or '' }}">
+                            <input type="hidden" name="ano_letivo" value="{{ linha.ano_letivo or '' }}">
+                            <td><button type="button" class="ghost" onclick="removerLinha(this)">Remover</button></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="actions">
+            <a class="button ghost" href="{{ url_for('index') }}">Cancelar</a>
+            <button type="submit">Salvar dados</button>
+        </div>
+    </form>
+</section>
+
+<script>
+function adicionarLinha() {
+    const tbody = document.querySelector("#tabela-conferencia tbody");
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+        <td><input name="nome_aluno"></td>
+        <td><input name="disciplina"></td>
+        <td><input name="bimestre"></td>
+        <td><input name="nota"></td>
+        <td><input name="media_final"></td>
+        <td><input name="situacao"></td>
+        <input type="hidden" name="turma">
+        <input type="hidden" name="ano_letivo">
+        <td><button type="button" class="ghost" onclick="removerLinha(this)">Remover</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function removerLinha(botao) {
+    botao.closest("tr").remove();
+}
+
+function filtrarLinhas(termo) {
+    const busca = termo.trim().toLowerCase();
+    document.querySelectorAll("#tabela-conferencia tbody tr").forEach((linha) => {
+        linha.hidden = busca && !linha.innerText.toLowerCase().includes(busca);
+    });
+}
+</script>
+{% endblock %}

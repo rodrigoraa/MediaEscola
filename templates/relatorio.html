@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <div class="section-title">
+        <div>
+            <h1>Relatório HTML</h1>
+            <p class="muted">Gerado em {{ gerado_em }}</p>
+        </div>
+        <a class="button" href="{{ url_for('exportar_excel', boletim_id=boletim_id) }}">Exportar Excel</a>
+    </div>
+</section>
+
+<section class="analysis-summary">
+    <article class="metric">
+        <span>Média da sala</span>
+        <strong>{{ analises.media_geral_turma|media(modo) }}</strong>
+    </article>
+    <article class="metric">
+        <span>Alunos abaixo de 6,0</span>
+        <strong>{{ analises.alunos_abaixo_media|length }}</strong>
+    </article>
+    <article class="metric">
+        <span>Disciplinas analisadas</span>
+        <strong>{{ analises.media_por_disciplina|length }}</strong>
+    </article>
+</section>
+
+<section class="grid two">
+    {% set titulo = "Média do aluno no ano" %}
+    {% set linhas = analises.media_por_aluno %}
+    {% set primeira_coluna = "aluno" %}
+    {% include "partials/tabela_media.html" %}
+
+    {% set titulo = "Média por disciplina" %}
+    {% set linhas = analises.media_por_disciplina %}
+    {% set primeira_coluna = "disciplina" %}
+    {% include "partials/tabela_media.html" %}
+
+    {% set titulo = "Média dos alunos por disciplina" %}
+    {% set linhas = analises.media_aluno_por_disciplina %}
+    {% include "partials/tabela_aluno_disciplina.html" %}
+
+    {% set titulo = "Média geral por disciplina" %}
+    {% set linhas = analises.resumo_geral_por_disciplina %}
+    {% include "partials/tabela_resumo_disciplina.html" %}
+
+    {% set titulo = "Média por bimestre" %}
+    {% set linhas = analises.media_por_bimestre %}
+    {% set primeira_coluna = "bimestre" %}
+    {% include "partials/tabela_media.html" %}
+
+    {% set titulo = "Disciplina por bimestre" %}
+    {% set linhas = analises.media_disciplina_por_bimestre %}
+    {% include "partials/tabela_disciplina_bimestre.html" %}
+
+    {% set titulo = "Alunos abaixo da média" %}
+    {% set linhas = analises.alunos_abaixo_media %}
+    {% set primeira_coluna = "aluno" %}
+    {% include "partials/tabela_media.html" %}
+</section>
+{% endblock %}

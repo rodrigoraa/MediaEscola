@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <h1>Lançar nota</h1>
+    <form method="post" class="filters-panel">
+        <div>
+            <label>Aluno</label>
+            <input name="nome_aluno" required>
+        </div>
+        <div>
+            <label>Turma</label>
+            <input name="turma" required>
+        </div>
+        <div>
+            <label>Ano letivo</label>
+            <input name="ano_letivo" value="2026">
+        </div>
+        <div>
+            <label>Disciplina</label>
+            <input name="disciplina" required>
+        </div>
+        <div>
+            <label>Bimestre</label>
+            <select name="bimestre">
+                <option>1º Bimestre</option>
+                <option>2º Bimestre</option>
+                <option>3º Bimestre</option>
+                <option>4º Bimestre</option>
+            </select>
+        </div>
+        <div>
+            <label>Nota</label>
+            <input name="nota" required>
+        </div>
+        <div>
+            <label>Média final</label>
+            <input name="media_final">
+        </div>
+        <div>
+            <label>Peso</label>
+            <input name="peso" value="1">
+        </div>
+        <div>
+            <label>Situação</label>
+            <select name="situacao">
+                <option value="">Calcular depois</option>
+                <option>Aprovado</option>
+                <option>Recuperação</option>
+                <option>Reprovado</option>
+            </select>
+        </div>
+        <button type="submit">Salvar nota</button>
+    </form>
+</section>
+{% endblock %}

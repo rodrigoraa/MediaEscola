@@ -1,0 +1,40 @@
+<article class="table-card">
+    <div class="section-title table-title">
+        <h2>{{ titulo }}</h2>
+        {% if linhas %}
+            <span class="pill">{{ linhas|length }} itens</span>
+        {% endif %}
+    </div>
+
+    {% if linhas %}
+        <input class="table-search" type="search" placeholder="Buscar disciplina" oninput="filtrarTabelaAnalise(this)">
+        <div class="table-wrap">
+            <table class="data-table wide-table">
+                <thead>
+                    <tr>
+                        <th>Disciplina</th>
+                        <th>Média geral</th>
+                        <th>Menor média</th>
+                        <th>Maior média</th>
+                        <th>Alunos</th>
+                        <th>Abaixo de 6,0</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in linhas %}
+                        <tr>
+                            <td>{{ linha.disciplina }}</td>
+                            <td><strong>{{ linha.media|media(modo) }}</strong></td>
+                            <td>{{ linha.menor_media|media(modo) }}</td>
+                            <td>{{ linha.maior_media|media(modo) }}</td>
+                            <td>{{ linha.alunos }}</td>
+                            <td>{{ linha.abaixo_media }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="muted">Sem dados para esta média.</p>
+    {% endif %}
+</article>

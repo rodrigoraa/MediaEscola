@@ -1,0 +1,11 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+database.sqlite3
+uploads/*
+exports/*
+!uploads/.gitkeep
+!exports/.gitkeep
+.test_runtime/
+tmp/
