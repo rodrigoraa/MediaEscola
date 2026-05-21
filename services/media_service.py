@@ -19,7 +19,7 @@ RELATORIOS = {
         "descricao": "Média de todas as notas válidas de todos os alunos, disciplinas e bimestres.",
         "formula": "soma de todas as notas válidas ÷ quantidade total de notas válidas",
         "exemplo": "(8 + 7 + 6 + 9) ÷ 4 = 7,50",
-        "filtros": ["turma", "ano_letivo"],
+        "filtros": [],
     },
     "media_turma_bimestre": {
         "grupo": "Médias da Turma",
@@ -27,7 +27,7 @@ RELATORIOS = {
         "descricao": "Média de todas as notas da turma considerando apenas o bimestre selecionado.",
         "formula": "soma das notas do bimestre ÷ quantidade de notas do bimestre",
         "exemplo": "2º bimestre: soma das notas do 2º bimestre ÷ total de notas do 2º bimestre",
-        "filtros": ["turma", "ano_letivo", "bimestre"],
+        "filtros": ["bimestre"],
     },
     "media_turma_disciplina": {
         "grupo": "Médias da Turma",
@@ -35,7 +35,7 @@ RELATORIOS = {
         "descricao": "Média de todos os alunos em uma disciplina, considerando todos os bimestres.",
         "formula": "soma das notas da disciplina ÷ quantidade de notas da disciplina",
         "exemplo": "Matemática: todas as notas de Matemática ÷ total de notas de Matemática",
-        "filtros": ["turma", "ano_letivo", "disciplina"],
+        "filtros": ["disciplina"],
     },
     "media_turma_disciplina_bimestre": {
         "grupo": "Médias da Turma",
@@ -43,7 +43,7 @@ RELATORIOS = {
         "descricao": "Média da turma em determinada disciplina dentro de um bimestre específico.",
         "formula": "soma das notas da disciplina no bimestre ÷ quantidade dessas notas",
         "exemplo": "Matemática no 2º bimestre: notas de Matemática do 2º bimestre ÷ quantidade",
-        "filtros": ["turma", "ano_letivo", "disciplina", "bimestre"],
+        "filtros": ["disciplina", "bimestre"],
     },
     "media_geral_aluno": {
         "grupo": "Médias do Aluno",
@@ -51,7 +51,7 @@ RELATORIOS = {
         "descricao": "Média de todas as notas do aluno, em todas as disciplinas e bimestres.",
         "formula": "soma das notas do aluno ÷ quantidade de notas do aluno",
         "exemplo": "Aluno Ana: todas as notas da Ana ÷ quantidade de notas da Ana",
-        "filtros": ["aluno", "turma", "ano_letivo"],
+        "filtros": ["aluno"],
     },
     "media_aluno_bimestre": {
         "grupo": "Médias do Aluno",
@@ -59,7 +59,7 @@ RELATORIOS = {
         "descricao": "Média do aluno considerando todas as disciplinas apenas no bimestre selecionado.",
         "formula": "soma das notas do aluno no bimestre ÷ quantidade dessas notas",
         "exemplo": "Ana no 2º bimestre: notas da Ana no 2º bimestre ÷ quantidade",
-        "filtros": ["aluno", "bimestre", "turma", "ano_letivo"],
+        "filtros": ["aluno", "bimestre"],
     },
     "media_aluno_disciplina": {
         "grupo": "Médias do Aluno",
@@ -67,7 +67,7 @@ RELATORIOS = {
         "descricao": "Média do aluno em uma disciplina específica, considerando todos os bimestres.",
         "formula": "soma das notas do aluno na disciplina ÷ quantidade dessas notas",
         "exemplo": "Ana em Matemática: notas da Ana em Matemática ÷ quantidade",
-        "filtros": ["aluno", "disciplina", "turma", "ano_letivo"],
+        "filtros": ["aluno", "disciplina"],
     },
     "media_aluno_disciplina_bimestre": {
         "grupo": "Médias do Aluno",
@@ -75,7 +75,7 @@ RELATORIOS = {
         "descricao": "Nota ou média do aluno em uma disciplina dentro de um bimestre específico.",
         "formula": "soma das notas do aluno na disciplina e bimestre ÷ quantidade dessas notas",
         "exemplo": "Ana em Matemática no 2º bimestre: notas encontradas ÷ quantidade",
-        "filtros": ["aluno", "disciplina", "bimestre", "turma", "ano_letivo"],
+        "filtros": ["aluno", "disciplina", "bimestre"],
     },
     "estatisticas": {
         "grupo": "Estatísticas",
@@ -83,7 +83,7 @@ RELATORIOS = {
         "descricao": "Resumo estatístico das notas válidas conforme os filtros selecionados.",
         "formula": "maior nota, menor nota, mediana, moda, desvio padrão e percentuais de situação",
         "exemplo": "Use para diagnosticar distribuição e risco da turma.",
-        "filtros": ["turma", "aluno", "disciplina", "bimestre", "ano_letivo"],
+        "filtros": ["aluno", "disciplina", "bimestre"],
     },
 }
 
@@ -118,14 +118,12 @@ def preparar_dataframe(notas):
 
 def opcoes_filtros(df):
     if df.empty:
-        return {"turmas": [], "alunos": [], "disciplinas": [], "bimestres": [], "anos": []}
+        return {"alunos": [], "disciplinas": [], "bimestres": []}
 
     return {
-        "turmas": _opcoes(df, "turma"),
         "alunos": _opcoes(df, "nome_aluno"),
         "disciplinas": _opcoes(df, "disciplina"),
         "bimestres": _ordenar_bimestres(_opcoes(df, "bimestre")),
-        "anos": _opcoes(df, "ano_letivo"),
     }
 
 
@@ -179,11 +177,9 @@ def aplicar_filtros(df, filtros, filtros_relevantes=None):
     filtros_relevantes = set(filtros_relevantes or [])
     resultado = df.copy()
     mapa = {
-        "turma": "turma",
         "aluno": "nome_aluno",
         "disciplina": "disciplina",
         "bimestre": "bimestre",
-        "ano_letivo": "ano_letivo",
     }
 
     for campo, coluna in mapa.items():
@@ -289,7 +285,7 @@ def classificarSituacaoAluno(media, media_minima=MEDIA_MINIMA_PADRAO, limite_rec
 def exportar_resultados_csv(pasta_exportacao, resultados):
     caminho = Path(pasta_exportacao) / f"gerador_medias_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
     caminho.parent.mkdir(parents=True, exist_ok=True)
-    campos = ["ranking", "aluno", "turma", "disciplina", "bimestre", "media_calculada", "situacao", "observacao", "formula"]
+    campos = ["ranking", "aluno", "disciplina", "bimestre", "media_calculada", "situacao", "observacao", "formula"]
     with caminho.open("w", newline="", encoding="utf-8-sig") as arquivo:
         writer = csv.DictWriter(arquivo, fieldnames=campos, extrasaction="ignore", delimiter=";")
         writer.writeheader()
@@ -306,10 +302,11 @@ def exportar_resultados_excel(pasta_exportacao, resultados, estatisticas):
     return caminho
 
 
-def exportar_resultados_pdf(pasta_exportacao, resultados, estatisticas):
-    caminho = Path(pasta_exportacao) / f"gerador_medias_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+def exportar_resultados_pdf(pasta_exportacao, resultados, estatisticas, turma=""):
+    sufixo_turma = f"_{_nome_arquivo_seguro(turma)}" if turma else ""
+    caminho = Path(pasta_exportacao) / f"gerador_medias{sufixo_turma}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
     caminho.parent.mkdir(parents=True, exist_ok=True)
-    caminho.write_bytes(_pdf_relatorio_medias(resultados, estatisticas))
+    caminho.write_bytes(_pdf_relatorio_medias(resultados, estatisticas, turma))
     return caminho
 
 
@@ -380,7 +377,6 @@ def _calcular_media(df, tipo_calculo):
 def _linha_resultado(aluno, turma, disciplina, bimestre, media, quantidade):
     return {
         "aluno": aluno,
-        "turma": turma,
         "disciplina": disciplina,
         "bimestre": bimestre,
         "media_calculada": media,
@@ -504,27 +500,26 @@ def _bimestre_numero(valor):
     return 99
 
 
-def _pdf_relatorio_medias(resultados, estatisticas):
+def _pdf_relatorio_medias(resultados, estatisticas, turma=""):
     largura, altura = 842, 595
     margem = 36
     colunas = [
         ("Rank", 36, lambda row: row.get("ranking", "")),
-        ("Aluno/Turma", 178, lambda row: row.get("aluno") or row.get("turma") or "Turma"),
-        ("Disciplina", 160, lambda row: row.get("disciplina", "")),
-        ("Bimestre", 92, lambda row: row.get("bimestre", "")),
-        ("Media", 62, lambda row: _fmt(row.get("media_calculada"))),
-        ("Situacao", 92, lambda row: row.get("situacao", "")),
-        ("Obs.", 150, lambda row: row.get("observacao", "")),
+        ("Aluno", 170, lambda row: row.get("aluno") or "Turma"),
+        ("Disciplina", 168, lambda row: row.get("disciplina", "")),
+        ("Bimestre", 86, lambda row: row.get("bimestre", "")),
+        ("Média", 58, lambda row: _fmt(row.get("media_calculada"))),
+        ("Situação", 88, lambda row: row.get("situacao", "")),
+        ("Observação", 164, lambda row: row.get("observacao", "")),
     ]
     largura_tabela = sum(coluna[1] for coluna in colunas)
-    linhas_por_pagina = 18
-    paginas_resultados = [resultados[i : i + linhas_por_pagina] for i in range(0, len(resultados), linhas_por_pagina)] or [[]]
+    paginas_resultados = _paginar_resultados_pdf(resultados, colunas, altura)
     total_paginas = len(paginas_resultados)
     streams = []
 
     for pagina_idx, linhas in enumerate(paginas_resultados, start=1):
         comandos = []
-        _cabecalho_pdf(comandos, largura, altura, margem, pagina_idx, total_paginas)
+        _cabecalho_pdf(comandos, largura, altura, margem, pagina_idx, total_paginas, turma)
 
         if pagina_idx == 1:
             _resumo_pdf(comandos, estatisticas, margem, altura - 116)
@@ -552,7 +547,7 @@ def _pdf_relatorio_medias(resultados, estatisticas):
             y -= altura_linha
 
         _rodape_pdf(comandos, largura, margem, pagina_idx, total_paginas)
-        streams.append("\n".join(comandos).encode("latin-1", errors="replace"))
+        streams.append("\n".join(comandos).encode("cp1252", errors="replace"))
 
     objetos = [
         b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n",
@@ -575,8 +570,8 @@ def _pdf_relatorio_medias(resultados, estatisticas):
 
     objetos.extend(
         [
-            f"{3 + len(streams) * 2} 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n".encode(),
-            f"{4 + len(streams) * 2} 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj\n".encode(),
+            f"{3 + len(streams) * 2} 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj\n".encode(),
+            f"{4 + len(streams) * 2} 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >> endobj\n".encode(),
         ]
     )
 
@@ -593,13 +588,16 @@ def _pdf_relatorio_medias(resultados, estatisticas):
     return pdf
 
 
-def _cabecalho_pdf(comandos, largura, altura, margem, pagina, total_paginas):
+def _cabecalho_pdf(comandos, largura, altura, margem, pagina, total_paginas, turma=""):
     _retangulo(comandos, 0, altura - 78, largura, 78, fill=(0.12, 0.20, 0.29))
-    _texto(comandos, "MediaEscola", margem, altura - 32, 15, fonte="F2", cor=(1, 1, 1))
-    _texto(comandos, "Relatorio do Gerador de Medias", margem, altura - 54, 10, cor=(0.86, 0.91, 0.96))
+    _texto(comandos, "Média Escolar", margem, altura - 32, 15, fonte="F2", cor=(1, 1, 1))
+    subtitulo = "Relatório do Gerador de Médias"
+    if turma:
+        subtitulo = f"{subtitulo} - Turma: {turma}"
+    _texto(comandos, subtitulo, margem, altura - 54, 10, cor=(0.86, 0.91, 0.96))
     _texto(
         comandos,
-        f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}  |  Pagina {pagina}/{total_paginas}",
+        f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}  |  Página {pagina}/{total_paginas}",
         largura - 260,
         altura - 42,
         8.5,
@@ -609,12 +607,12 @@ def _cabecalho_pdf(comandos, largura, altura, margem, pagina, total_paginas):
 
 def _resumo_pdf(comandos, estatisticas, margem, y):
     cards = [
-        ("Notas validas", estatisticas.get("notas_validas")),
-        ("Media geral", _fmt(estatisticas.get("media_geral"))),
+        ("Notas válidas", estatisticas.get("notas_validas")),
+        ("Média geral", _fmt(estatisticas.get("media_geral"))),
         ("Maior nota", _fmt(estatisticas.get("maior_nota"))),
         ("Menor nota", _fmt(estatisticas.get("menor_nota"))),
-        ("Abaixo da media", estatisticas.get("qtd_abaixo_media")),
-        ("Aprovacao", f"{estatisticas.get('percentual_aprovacao', 0)}%"),
+        ("Abaixo da média", estatisticas.get("qtd_abaixo_media")),
+        ("Aprovação", f"{str(estatisticas.get('percentual_aprovacao', 0)).replace('.', ',')}%"),
     ]
     largura_card = 118
     for idx, (titulo, valor) in enumerate(cards):
@@ -630,6 +628,34 @@ def _rodape_pdf(comandos, largura, margem, pagina, total_paginas):
     _texto(comandos, f"{pagina}/{total_paginas}", largura - margem - 26, 20, 7.5, cor=(0.42, 0.48, 0.56))
 
 
+def _nome_arquivo_seguro(valor):
+    texto = "".join(char if char.isalnum() else "_" for char in str(valor).strip())
+    return "_".join(parte for parte in texto.split("_") if parte)[:80]
+
+
+def _paginar_resultados_pdf(resultados, colunas, altura):
+    if not resultados:
+        return [[]]
+
+    paginas = []
+    pagina = []
+    y = altura - 216
+    limite_inferior = 72
+
+    for row in resultados:
+        altura_linha = _altura_linha(row, colunas)
+        if pagina and y - altura_linha < limite_inferior:
+            paginas.append(pagina)
+            pagina = []
+            y = altura - 116
+        pagina.append(row)
+        y -= altura_linha
+
+    if pagina:
+        paginas.append(pagina)
+    return paginas
+
+
 def _altura_linha(row, colunas):
     maior = 1
     for _titulo, largura, getter in colunas:
@@ -643,13 +669,19 @@ def _quebrar_texto(texto, largura, tamanho):
     linhas = []
     atual = ""
     for palavra in palavras:
+        if len(palavra) > limite:
+            if atual:
+                linhas.append(atual)
+                atual = ""
+            linhas.extend(palavra[i : i + limite] for i in range(0, len(palavra), limite))
+            continue
         tentativa = f"{atual} {palavra}".strip()
         if len(tentativa) <= limite:
             atual = tentativa
         else:
             if atual:
                 linhas.append(atual)
-            atual = palavra[:limite]
+            atual = palavra
     if atual:
         linhas.append(atual)
     return linhas or ["-"]
@@ -684,4 +716,10 @@ def _fmt(valor):
 
 
 def _escape_pdf(texto):
-    return texto.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    return (
+        texto.encode("cp1252", errors="replace")
+        .decode("cp1252")
+        .replace("\\", "\\\\")
+        .replace("(", "\\(")
+        .replace(")", "\\)")
+    )

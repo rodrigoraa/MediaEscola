@@ -47,24 +47,23 @@ body {
     text-decoration: none;
 }
 
-.brand-mark {
-    display: inline-grid;
-    place-items: center;
+.brand-logo {
     width: 34px;
     height: 34px;
     border-radius: 8px;
-    background: var(--navy);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 800;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid var(--line);
 }
 
-.brand-mark.large {
-    width: 54px;
-    height: 54px;
-    font-size: 18px;
+.login-logo {
+    width: 84px;
+    height: 84px;
+    object-fit: contain;
+    border-radius: 12px;
     background: #fff;
-    color: var(--navy);
+    padding: 8px;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
 }
 
 nav {
@@ -94,60 +93,13 @@ nav a:hover {
     margin: clamp(14px, 2vw, 24px) auto;
 }
 
-.app-shell {
-    display: grid;
-    grid-template-columns: clamp(190px, 13vw, 240px) minmax(0, 1fr);
-    gap: clamp(14px, 1.6vw, 24px);
-    align-items: start;
-}
-
 .content-area {
     min-width: 0;
 }
 
-.sidebar {
-    display: grid;
-    gap: 16px;
-    position: sticky;
-    top: 18px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 16px;
-    box-shadow: var(--shadow);
-}
-
-.user-box {
-    display: grid;
-    gap: 2px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--line);
-}
-
-.user-box span,
-.sidebar-group span {
-    color: var(--muted);
-    font-size: 13px;
-}
-
-.sidebar-group {
-    display: grid;
-    gap: 6px;
-}
-
-.sidebar a,
 .link-card {
     color: var(--navy);
     text-decoration: none;
-}
-
-.sidebar a {
-    border-radius: 6px;
-    padding: 8px 10px;
-}
-
-.sidebar a:hover {
-    background: var(--soft-blue);
 }
 
 .panel,
@@ -193,6 +145,43 @@ h2 {
 .form-grid {
     display: grid;
     gap: 10px;
+}
+
+.progress-box {
+    display: grid;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.progress-box[hidden] {
+    display: none;
+}
+
+.progress-bar {
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--soft-blue);
+    border: 1px solid var(--line);
+}
+
+.progress-bar span {
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--accent);
+    animation: progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+    0% {
+        transform: translateX(-110%);
+    }
+
+    100% {
+        transform: translateX(250%);
+    }
 }
 
 input,
@@ -326,13 +315,39 @@ th {
     gap: 8px;
 }
 
-.list a {
+.list a,
+.saved-file {
     display: flex;
     justify-content: space-between;
     gap: 12px;
     padding: 10px;
     border: 1px solid var(--line);
     border-radius: 6px;
+}
+
+.saved-file {
+    align-items: center;
+    background: #fff;
+}
+
+.saved-file a {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+}
+
+.saved-file form {
+    margin: 0;
+}
+
+.danger {
+    border-color: #b42318;
+    color: #b42318;
+}
+
+.danger:hover {
+    background: #fff0ee;
 }
 
 .grid {
@@ -410,24 +425,6 @@ th {
 .media-option span {
     color: var(--muted);
     font-size: 13px;
-}
-
-.formula-box {
-    display: grid;
-    gap: 8px;
-    margin: 14px 0 0;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: linear-gradient(180deg, var(--soft), #fff);
-    padding: 16px;
-}
-
-.formula-box strong {
-    color: var(--accent-dark);
-}
-
-.formula-box small {
-    color: var(--muted);
 }
 
 .form-grid {
@@ -706,14 +703,9 @@ label {
     .analysis-summary,
     .filters-panel,
     .form-grid,
-    .app-shell,
     .option-grid,
     .login-shell {
         grid-template-columns: 1fr;
-    }
-
-    .sidebar {
-        position: static;
     }
 
     .login-panel {

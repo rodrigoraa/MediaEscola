@@ -102,7 +102,7 @@ Após entrar, altere a senha em **Senha**.
 
 ## Gerador de Médias
 
-Acesse **Gerador de Médias** no menu. Use os filtros de PDF, turma, aluno, disciplina, bimestre, ano letivo, situação, tipo de cálculo e relatório. Depois clique em **Calcular**.
+Acesse **Gerador de Médias** no menu. Escolha o PDF analisado e use os filtros de aluno, disciplina, bimestre, tipo de cálculo e relatório. Depois clique em **Calcular**.
 
 Exportações disponíveis:
 

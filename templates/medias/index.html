@@ -5,11 +5,11 @@
     <div class="section-title">
         <div>
             <h1>Gerador de Médias</h1>
-            <p class="muted">Cálculos padronizados, com fórmula visível e filtros específicos para cada média.</p>
+            <p class="muted">Cálculos padronizados com filtros específicos para cada média.</p>
         </div>
     </div>
 
-    <form method="post" id="media-form">
+    <form method="post" id="media-form" action="{{ url_for('gerador_medias') }}#resultados">
         <div class="media-option-groups">
             {% for grupo in ["Médias da Turma", "Médias do Aluno", "Estatísticas"] %}
                 <section class="option-group">
@@ -23,9 +23,6 @@
                                         name="relatorio"
                                         value="{{ codigo }}"
                                         data-filtros="{{ item.filtros|join(',') }}"
-                                        data-formula="{{ item.formula }}"
-                                        data-exemplo="{{ item.exemplo }}"
-                                        data-descricao="{{ item.descricao }}"
                                         {% if resultado.relatorio == codigo %}checked{% endif %}
                                     >
                                     <strong>{{ item.titulo }}</strong>
@@ -38,13 +35,6 @@
             {% endfor %}
         </div>
 
-        <section class="formula-box">
-            <h2>Como esta média é calculada</h2>
-            <p id="formula-descricao">{{ resultado.metadata.descricao }}</p>
-            <strong id="formula-texto">{{ resultado.metadata.formula }}</strong>
-            <small id="formula-exemplo">{{ resultado.metadata.exemplo }}</small>
-        </section>
-
         <section class="filters-panel smart-filters">
             <div data-filter="boletim_id">
                 <label>Arquivo analisado</label>
@@ -55,16 +45,6 @@
                         </option>
                     {% else %}
                         <option value="">Nenhum PDF enviado</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div data-filter="turma">
-                <label>Turma</label>
-                <select name="turma">
-                    <option value="">Todas</option>
-                    {% for turma in resultado.opcoes.turmas %}
-                        <option value="{{ turma }}" {% if filtros.turma == turma %}selected{% endif %}>{{ turma }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -95,16 +75,6 @@
                     <option value="">Todos</option>
                     {% for bimestre in resultado.opcoes.bimestres %}
                         <option value="{{ bimestre }}" {% if filtros.bimestre == bimestre %}selected{% endif %}>{{ bimestre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div data-filter="ano_letivo">
-                <label>Ano letivo</label>
-                <select name="ano_letivo">
-                    <option value="">Todos</option>
-                    {% for ano in resultado.opcoes.anos %}
-                        <option value="{{ ano }}" {% if filtros.ano_letivo == ano %}selected{% endif %}>{{ ano }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -142,7 +112,7 @@
             </div>
 
             <div data-filter="limite_recuperacao">
-                <label>Limite recuperação</label>
+                <label>Limite para recuperação</label>
                 <input name="limite_recuperacao" value="{{ filtros.limite_recuperacao }}">
             </div>
 
@@ -151,13 +121,18 @@
     </form>
 </section>
 
-<section class="analysis-summary">
+<section class="analysis-summary" id="resultados">
     <article class="metric"><span>Notas válidas</span><strong>{{ resultado.estatisticas.notas_validas }}</strong></article>
     <article class="metric"><span>Média das notas filtradas</span><strong>{{ resultado.estatisticas.media_geral|media("nota") }}</strong></article>
     <article class="metric"><span>Maior nota</span><strong>{{ resultado.estatisticas.maior_nota|media("nota") }}</strong></article>
     <article class="metric"><span>Menor nota</span><strong>{{ resultado.estatisticas.menor_nota|media("nota") }}</strong></article>
     <article class="metric"><span>Mediana</span><strong>{{ resultado.estatisticas.mediana|media("nota") }}</strong></article>
     <article class="metric"><span>Desvio padrão</span><strong>{{ resultado.estatisticas.desvio_padrao|media("nota") }}</strong></article>
+</section>
+
+<section class="panel compact">
+    <h2>Desvio padrão</h2>
+    <p class="muted">Mostra o quanto as notas estão espalhadas em relação à média: quanto menor o valor, mais parecidas são as notas; quanto maior, maior é a diferença de desempenho entre os alunos.</p>
 </section>
 
 <section class="grid two">
@@ -193,7 +168,7 @@
     <div class="section-title">
         <div>
             <h2>Resultados</h2>
-            <p class="muted">Resultado calculado por: {{ resultado.metadata.formula }}.</p>
+            <p class="muted">{{ resultado.metadata.descricao }}</p>
         </div>
         <div class="actions">
             {% for formato, label in [("pdf", "PDF"), ("excel", "Excel"), ("csv", "CSV")] %}
@@ -209,7 +184,7 @@
             {% endfor %}
         </div>
     </div>
-    <input class="table-search" type="search" placeholder="Buscar aluno, turma, disciplina ou situação" oninput="filtrarTabelaAnalise(this)">
+    <input class="table-search" type="search" placeholder="Buscar aluno, disciplina ou situação" oninput="filtrarTabelaAnalise(this)">
     <div class="table-card no-frame">
         <div class="table-wrap">
             <table class="data-table wide-table">
@@ -217,12 +192,11 @@
                     <tr>
                         <th>Ranking</th>
                         <th>Aluno</th>
-                        <th>Turma</th>
                         <th>Disciplina</th>
                         <th>Bimestre</th>
                         <th>Média calculada</th>
                         <th>Situação</th>
-                        <th>Qtd. notas</th>
+                        <th>Quantidade de notas</th>
                         <th>Observação</th>
                     </tr>
                 </thead>
@@ -231,7 +205,6 @@
                         <tr>
                             <td>{{ linha.ranking }}</td>
                             <td>{{ linha.aluno }}</td>
-                            <td>{{ linha.turma }}</td>
                             <td>{{ linha.disciplina }}</td>
                             <td>{{ linha.bimestre }}</td>
                             <td><strong>{{ linha.media_calculada|media("nota") }}</strong></td>
@@ -240,7 +213,7 @@
                             <td>{{ linha.observacao }}</td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="9">Nenhum resultado encontrado para os filtros selecionados.</td></tr>
+                        <tr><td colspan="8">Nenhum resultado encontrado para os filtros selecionados.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -261,9 +234,6 @@ function atualizarFiltrosMedias() {
         campo.hidden = !filtros.has(nome) && nome !== "boletim_id";
     });
 
-    document.getElementById("formula-descricao").textContent = selecionado.dataset.descricao;
-    document.getElementById("formula-texto").textContent = selecionado.dataset.formula;
-    document.getElementById("formula-exemplo").textContent = selecionado.dataset.exemplo;
 }
 
 document.querySelectorAll('input[name="relatorio"]').forEach((input) => {

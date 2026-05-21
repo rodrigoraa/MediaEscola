@@ -179,6 +179,32 @@ def buscar_boletins(apenas_arquivos=False):
         ).fetchall()
 
 
+def nome_turma_do_boletim(boletins, boletim_id):
+    for boletim in boletins:
+        if boletim["id"] == boletim_id:
+            return Path(boletim["nome_arquivo"]).stem
+    return ""
+
+
+def caminho_upload_seguro(caminho):
+    if not caminho:
+        return None
+
+    arquivo = Path(caminho)
+    if not arquivo.is_absolute():
+        arquivo = BASE_DIR / arquivo
+
+    try:
+        arquivo_resolvido = arquivo.resolve()
+        upload_resolvido = UPLOAD_DIR.resolve()
+        if not arquivo_resolvido.is_relative_to(upload_resolvido):
+            return None
+    except (OSError, ValueError):
+        return None
+
+    return arquivo_resolvido
+
+
 def definir_boletim_padrao(filtros, boletins):
     # O Gerador de Médias deve trabalhar sempre sobre uma importação específica.
     if not filtros.get("boletim_id") and boletins:
@@ -224,11 +250,9 @@ def filtros_medias_da_request():
     config = carregar_configuracoes()
     return {
         "boletim_id": request.values.get("boletim_id", type=int),
-        "turma": request.values.get("turma", ""),
         "aluno": request.values.get("aluno", ""),
         "disciplina": request.values.get("disciplina", ""),
         "bimestre": request.values.get("bimestre", ""),
-        "ano_letivo": request.values.get("ano_letivo", ""),
         "tipo_calculo": request.values.get("tipo_calculo", "media_simples"),
         "situacao": request.values.get("situacao", "todos"),
         "desempenho": request.values.get("desempenho", ""),
@@ -362,48 +386,32 @@ def index():
     return render_template("index.html", boletins=buscar_boletins())
 
 
-@app.route("/notas/nova", methods=["GET", "POST"])
+@app.route("/boletins/<int:boletim_id>/excluir", methods=["POST"])
 @exigir_permissao("upload")
-def lancar_nota():
-    if request.method == "POST":
-        with get_db() as conn:
-            cursor = conn.execute(
-                """
-                INSERT INTO boletins (nome_arquivo, caminho_arquivo, criado_em, turma, ano_letivo)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    "Lançamento manual",
-                    "",
-                    datetime.now().isoformat(timespec="seconds"),
-                    request.form.get("turma", "").strip(),
-                    request.form.get("ano_letivo", "").strip(),
-                ),
-            )
-            boletim_id = cursor.lastrowid
-            conn.execute(
-                """
-                INSERT INTO notas
-                    (boletim_id, nome_aluno, disciplina, bimestre, nota, media_final, situacao, turma, ano_letivo, peso)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    boletim_id,
-                    request.form.get("nome_aluno", "").strip(),
-                    request.form.get("disciplina", "").strip(),
-                    request.form.get("bimestre", "").strip(),
-                    request.form.get("nota", "").strip(),
-                    request.form.get("media_final", "").strip(),
-                    request.form.get("situacao", "").strip(),
-                    request.form.get("turma", "").strip(),
-                    request.form.get("ano_letivo", "").strip(),
-                    request.form.get("peso", "1").replace(",", "."),
-                ),
-            )
-        flash("Nota lançada com sucesso.")
-        return redirect(url_for("gerador_medias", boletim_id=boletim_id))
+def excluir_boletim(boletim_id):
+    with get_db() as conn:
+        boletim = conn.execute(
+            "SELECT id, nome_arquivo, caminho_arquivo FROM boletins WHERE id = ?",
+            (boletim_id,),
+        ).fetchone()
 
-    return render_template("notas/nova.html")
+        if not boletim:
+            flash("Arquivo enviado não encontrado.")
+            return redirect(url_for("index"))
+
+        caminho_pdf = caminho_upload_seguro(boletim["caminho_arquivo"])
+        conn.execute("DELETE FROM notas WHERE boletim_id = ?", (boletim_id,))
+        conn.execute("DELETE FROM boletins WHERE id = ?", (boletim_id,))
+
+    if caminho_pdf and caminho_pdf.exists():
+        try:
+            caminho_pdf.unlink()
+        except OSError:
+            flash("Os dados foram excluídos, mas não foi possível remover o arquivo PDF do servidor.")
+            return redirect(url_for("index"))
+
+    flash(f"Arquivo {boletim['nome_arquivo']} excluído com sucesso.")
+    return redirect(url_for("index"))
 
 
 @app.route("/conferencia", methods=["GET", "POST"])
@@ -489,7 +497,7 @@ def conferencia():
         session.pop("conferencia_token", None)
         session.pop("arquivo_pdf", None)
         flash("Dados salvos com sucesso.")
-        return redirect(url_for("analise", boletim_id=boletim_id))
+        return redirect(url_for("gerador_medias", boletim_id=boletim_id))
 
     return render_template("conferencia.html", dados=dados, resumo=resumir_linhas(dados))
 
@@ -618,7 +626,8 @@ def exportar_medias(formato):
         caminho = exportar_resultados_excel(EXPORT_DIR, resultado["resultados"], resultado["estatisticas"])
         mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     elif formato == "pdf":
-        caminho = exportar_resultados_pdf(EXPORT_DIR, resultado["resultados"], resultado["estatisticas"])
+        turma = nome_turma_do_boletim(boletins, filtros.get("boletim_id"))
+        caminho = exportar_resultados_pdf(EXPORT_DIR, resultado["resultados"], resultado["estatisticas"], turma)
         mimetype = "application/pdf"
     else:
         flash("Formato de exportação inválido.")
