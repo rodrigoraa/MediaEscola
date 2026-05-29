@@ -182,11 +182,11 @@ def registrar_log(conn, usuario_id, email, acao, ip=None):
 
 def permissoes_para(tipo_usuario):
     if tipo_usuario == "administrador":
-        return {"usuarios", "configuracoes", "relatorios", "medias", "upload", "analises"}
+        return {"usuarios", "configuracoes", "relatorios", "medias", "upload", "analises", "horarios"}
     if tipo_usuario == "coordenacao":
-        return {"relatorios", "medias", "upload", "analises"}
+        return {"relatorios", "medias", "upload", "analises", "horarios"}
     if tipo_usuario == "professor":
-        return {"medias", "upload", "analises"}
+        return {"medias", "upload", "analises", "horarios"}
     return set()
 
 

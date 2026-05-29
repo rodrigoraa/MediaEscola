@@ -3,23 +3,24 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Analisador de Boletins Escolares</title>
+    <title>Portal Escolar</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='image/logo_escola.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='image/logo_escola.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <header class="topbar">
-        <a href="{{ url_for('dashboard') if usuario_logado else url_for('login') }}" class="brand">
+        <a href="{{ url_for('portal') if usuario_logado else url_for('login') }}" class="brand">
             <img class="brand-logo" src="{{ url_for('static', filename='image/logo_escola.png') }}" alt="Logo da escola">
-            <span>Média Escolar</span>
+            <span>Portal Escolar</span>
         </a>
         {% if usuario_logado %}
             <nav>
-                <a href="{{ url_for('dashboard') }}">Início</a>
+                <a href="{{ url_for('portal') }}">Portal</a>
                 {% if tem_permissao(usuario_logado, "upload") %}<a href="{{ url_for('index') }}">Enviar PDF</a>{% endif %}
                 {% if tem_permissao(usuario_logado, "analises") %}<a href="{{ url_for('analise') }}">Análises</a>{% endif %}
                 {% if tem_permissao(usuario_logado, "medias") %}<a href="{{ url_for('gerador_medias') }}">Gerador de Médias</a>{% endif %}
+                {% if tem_permissao(usuario_logado, "horarios") %}<a href="{{ url_for('gerador_horarios') }}">Gerador de Horários</a>{% endif %}
                 {% if tem_permissao(usuario_logado, "usuarios") %}<a href="{{ url_for('usuarios') }}">Usuários</a>{% endif %}
                 {% if tem_permissao(usuario_logado, "configuracoes") %}<a href="{{ url_for('configuracoes') }}">Configurações</a>{% endif %}
                 <a href="{{ url_for('alterar_senha_view') }}">Alterar senha</a>

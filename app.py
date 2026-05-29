@@ -1,13 +1,20 @@
 import json
 import logging
 import os
+import socket
 import sqlite3
+import subprocess
+import sys
 import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
+from urllib.error import URLError
+from urllib.parse import urljoin
+from urllib.request import urlopen
 
 from flask import Flask, flash, g, redirect, render_template, request, send_file, session, url_for
+from jinja2 import ChoiceLoader, FileSystemLoader
 from werkzeug.utils import secure_filename
 
 from services.auth_service import (
@@ -21,15 +28,15 @@ from services.auth_service import (
     tem_permissao,
     atualizar_usuario,
 )
-from services.calculos import gerar_analises
-from services.leitor_pdf import extrair_boletim_pdf
-from services.media_service import (
+from sistemas.medias.services.calculos import gerar_analises
+from sistemas.medias.services.leitor_pdf import extrair_boletim_pdf
+from sistemas.medias.services.media_service import (
     calcular_gerador_medias,
     exportar_resultados_csv,
     exportar_resultados_excel,
     exportar_resultados_pdf,
 )
-from services.relatorios import gerar_excel
+from sistemas.medias.services.relatorios import gerar_excel
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -60,10 +67,24 @@ UPLOAD_DIR = BASE_DIR / "uploads"
 EXPORT_DIR = env_path("EXPORT_DIR", "exports")
 PENDING_DIR = env_path("PENDING_DIR", "tmp/conferencias")
 DB_PATH = env_path("DATABASE_PATH", "database.sqlite3")
+MEDIAS_DIR = BASE_DIR / "sistemas" / "medias"
+HORARIOS_DIR = BASE_DIR / "sistemas" / "horarios"
+HORARIOS_HOST = os.getenv("HORARIOS_HOST", "127.0.0.1")
+HORARIOS_PORT = int(os.getenv("HORARIOS_PORT", "8501"))
+HORARIOS_BASE_PATH = os.getenv("HORARIOS_BASE_PATH", "").strip("/")
+HORARIOS_URL = os.getenv("HORARIOS_URL", f"http://{HORARIOS_HOST}:{HORARIOS_PORT}")
 ALLOWED_EXTENSIONS = {"pdf"}
+HORARIOS_PROCESS = None
 
 
 app = Flask(__name__)
+app.jinja_loader = ChoiceLoader(
+    [
+        app.jinja_loader,
+        FileSystemLoader(MEDIAS_DIR / "templates"),
+        FileSystemLoader(HORARIOS_DIR),
+    ]
+)
 app.secret_key = os.getenv("SECRET_KEY") or os.urandom(32)
 app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
 app.permanent_session_lifetime = timedelta(hours=int(os.getenv("SESSION_HOURS", "8")))
@@ -292,7 +313,7 @@ def login():
             "turmas_permitidas": usuario.get("turmas_permitidas", ""),
             "disciplinas_permitidas": usuario.get("disciplinas_permitidas", ""),
         }
-        return redirect(request.args.get("next") or url_for("dashboard"))
+        return redirect(request.args.get("next") or url_for("portal"))
 
     return render_template("auth/login.html")
 
@@ -310,6 +331,82 @@ def logout():
 @app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html")
+
+
+@app.route("/")
+def portal():
+    return render_template("portal.html")
+
+
+def porta_em_uso(host, port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.4)
+        return sock.connect_ex((host, port)) == 0
+
+
+def streamlit_respondendo(url):
+    health_url = urljoin(url.rstrip("/") + "/", "_stcore/health")
+    try:
+        with urlopen(health_url, timeout=1) as response:
+            return response.status < 500
+    except (OSError, URLError):
+        return False
+
+
+def iniciar_gerador_horarios():
+    global HORARIOS_PROCESS
+
+    if streamlit_respondendo(HORARIOS_URL):
+        return True
+
+    if HORARIOS_PROCESS and HORARIOS_PROCESS.poll() is None:
+        return porta_em_uso(HORARIOS_HOST, HORARIOS_PORT)
+
+    if not (HORARIOS_DIR / "app.py").exists():
+        return False
+
+    env = os.environ.copy()
+    env.setdefault("HORARIOS_PORTAL_MODE", "1")
+    env.setdefault("STREAMLIT_BROWSER_GATHER_USAGE_STATS", "false")
+
+    comando = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        "app.py",
+        "--server.address",
+        HORARIOS_HOST,
+        "--server.port",
+        str(HORARIOS_PORT),
+        "--server.headless",
+        "true",
+        "--server.enableCORS",
+        "false",
+        "--server.enableXsrfProtection",
+        "false",
+    ]
+    if HORARIOS_BASE_PATH:
+        comando.extend(["--server.baseUrlPath", HORARIOS_BASE_PATH])
+
+    try:
+        HORARIOS_PROCESS = subprocess.Popen(
+            comando,
+            cwd=HORARIOS_DIR,
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return False
+
+    return True
+
+
+@app.route("/horarios")
+def gerador_horarios():
+    disponivel = iniciar_gerador_horarios()
+    return render_template("horarios.html", horarios_url=HORARIOS_URL, disponivel=disponivel)
 
 
 def salvar_conferencia_temporaria(dados):
@@ -349,7 +446,7 @@ def resumir_linhas(dados):
     }
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/medias/importar", methods=["GET", "POST"])
 @exigir_permissao("upload")
 def index():
     if request.method == "POST":
