@@ -4,8 +4,8 @@
 <section class="panel">
     <div class="section-title">
         <div>
-            <h1>Gerador de Horários</h1>
-            <p class="muted">Sistema de horários integrado ao portal escolar.</p>
+            <h1>Gerador de Hor&aacute;rios</h1>
+            <p class="muted">Sistema de hor&aacute;rios integrado ao portal escolar.</p>
         </div>
         <a class="button" href="{{ horarios_url }}" target="_blank" rel="noopener">Abrir em nova aba</a>
     </div>
@@ -13,12 +13,13 @@
 
 {% if disponivel %}
     <section class="streamlit-shell">
-        <iframe title="Gerador de Horários" src="{{ horarios_url }}"></iframe>
+        <iframe title="Gerador de Hor&aacute;rios" src="{{ horarios_url }}"></iframe>
     </section>
 {% else %}
     <section class="panel">
-        <h2>Não foi possível iniciar o gerador</h2>
-        <p class="muted">Verifique se as dependências do módulo de horários foram instaladas e se a porta configurada está livre.</p>
+        <h2>N&atilde;o foi poss&iacute;vel abrir o gerador</h2>
+        <p class="muted">{{ mensagem_horarios or "Verifique se as dependencias do modulo de horarios foram instaladas e se a porta configurada esta livre." }}</p>
+        <p class="muted horarios-url">URL configurada: {{ horarios_url }}</p>
     </section>
 {% endif %}
 {% endblock %}

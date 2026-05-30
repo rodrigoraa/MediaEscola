@@ -1,25 +1,24 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="panel">
-    <div class="section-title">
-        <div>
-            <h1>Portal Escolar</h1>
-            <p class="muted">Escolha qual sistema deseja abrir.</p>
-        </div>
+<section class="portal-hero">
+    <div>
+        <span class="eyebrow">Coordena&ccedil;&atilde;o escolar</span>
+        <h1>Portal Escolar</h1>
+        <p>Escolha o sistema que deseja abrir e acompanhe boletins, m&eacute;dias, an&aacute;lises e hor&aacute;rios em um s&oacute; lugar.</p>
     </div>
 </section>
 
 <section class="portal-grid">
-    <a class="portal-card" href="{{ url_for('gerador_medias') }}">
-        <span>Médias e relatórios</span>
-        <strong>Gerador de Médias</strong>
-        <small>Calcule médias, aplique filtros e exporte resultados dos boletins importados.</small>
+    <a class="portal-card medias-card" href="{{ url_for('gerador_medias') }}">
+        <span>M&eacute;dias e relat&oacute;rios</span>
+        <strong>Gerador de M&eacute;dias</strong>
+        <small>Calcule m&eacute;dias, aplique filtros e exporte resultados dos boletins importados.</small>
     </a>
-    <a class="portal-card" href="{{ url_for('gerador_horarios') }}">
+    <a class="portal-card horarios-card" href="{{ url_for('gerador_horarios') }}">
         <span>Grade escolar</span>
-        <strong>Gerador de Horários</strong>
-        <small>Monte horários por turma e professor usando o gerador em Streamlit.</small>
+        <strong>Gerador de Hor&aacute;rios</strong>
+        <small>Monte hor&aacute;rios por turma e professor usando o gerador integrado.</small>
     </a>
 </section>
 
@@ -30,7 +29,7 @@
     </a>
     <a class="metric link-card" href="{{ url_for('analise') }}">
         <span>Consultas</span>
-        <strong>Análises rápidas</strong>
+        <strong>An&aacute;lises r&aacute;pidas</strong>
     </a>
 </section>
 {% endblock %}

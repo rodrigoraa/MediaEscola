@@ -33,7 +33,8 @@ def aplicar_estilo_login():
 
 def verificar_login():
     if os.getenv("HORARIOS_PORTAL_MODE") == "1":
-        return True, "Portal Escolar", None
+        nome_usuario = st.query_params.get("usuario") or "Portal Escolar"
+        return True, nome_usuario, None
 
     try:
         import streamlit_authenticator as stauth

@@ -5,12 +5,13 @@ import socket
 import sqlite3
 import subprocess
 import sys
+import time
 import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
 from urllib.error import URLError
-from urllib.parse import urljoin
+from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit, parse_qsl
 from urllib.request import urlopen
 
 from flask import Flask, flash, g, redirect, render_template, request, send_file, session, url_for
@@ -344,26 +345,60 @@ def porta_em_uso(host, port):
         return sock.connect_ex((host, port)) == 0
 
 
+def horarios_url_local():
+    health_host = "127.0.0.1" if HORARIOS_HOST in {"0.0.0.0", "::"} else HORARIOS_HOST
+    url = f"http://{health_host}:{HORARIOS_PORT}"
+    if HORARIOS_BASE_PATH:
+        url = f"{url}/{HORARIOS_BASE_PATH}"
+    return url
+
+
 def streamlit_respondendo(url):
     health_url = urljoin(url.rstrip("/") + "/", "_stcore/health")
     try:
-        with urlopen(health_url, timeout=1) as response:
+        with urlopen(health_url, timeout=2) as response:
             return response.status < 500
     except (OSError, URLError):
         return False
 
 
+def aguardar_streamlit(url, tentativas=12, intervalo=0.5):
+    for _ in range(tentativas):
+        if streamlit_respondendo(url):
+            return True
+        time.sleep(intervalo)
+    return False
+
+
+def url_horarios_com_usuario(url, usuario):
+    nome = (usuario or {}).get("nome") or "Portal Escolar"
+    partes = urlsplit(url)
+    query = dict(parse_qsl(partes.query, keep_blank_values=True))
+    query["usuario"] = nome
+    return urlunsplit((partes.scheme, partes.netloc, partes.path, urlencode(query), partes.fragment))
+
+
 def iniciar_gerador_horarios():
     global HORARIOS_PROCESS
 
-    if streamlit_respondendo(HORARIOS_URL):
-        return True
+    local_url = horarios_url_local()
+    url_publica_ok = streamlit_respondendo(HORARIOS_URL)
+    local_ok = url_publica_ok or streamlit_respondendo(local_url)
+
+    if url_publica_ok:
+        return True, ""
+
+    if local_ok and HORARIOS_URL != local_url:
+        return False, "O gerador está ativo no servidor, mas a URL pública configurada retorna erro. Revise o proxy reverso para apontar para a porta do Streamlit."
 
     if HORARIOS_PROCESS and HORARIOS_PROCESS.poll() is None:
-        return porta_em_uso(HORARIOS_HOST, HORARIOS_PORT)
+        local_ok = local_ok or aguardar_streamlit(local_url, tentativas=4)
+        if local_ok and HORARIOS_URL != local_url:
+            return False, "O gerador iniciou localmente, mas a URL pública configurada ainda não responde. Verifique o proxy reverso ou o DNS/Cloudflare para HORARIOS_URL."
+        return local_ok, "" if local_ok else "O processo do gerador está aberto, mas o Streamlit ainda não respondeu na porta configurada."
 
     if not (HORARIOS_DIR / "app.py").exists():
-        return False
+        return False, "O arquivo do gerador de horários não foi encontrado em sistemas/horarios/app.py."
 
     env = os.environ.copy()
     env.setdefault("HORARIOS_PORTAL_MODE", "1")
@@ -398,15 +433,28 @@ def iniciar_gerador_horarios():
             stderr=subprocess.DEVNULL,
         )
     except OSError:
-        return False
+        return False, "Não foi possível iniciar o processo do Streamlit. Verifique se as dependências foram instaladas."
 
-    return True
+    local_ok = aguardar_streamlit(local_url)
+    if not local_ok:
+        return False, "O Streamlit foi acionado, mas não respondeu dentro do tempo esperado. Verifique logs, dependências e se a porta está livre."
+
+    if HORARIOS_URL != local_url and not streamlit_respondendo(HORARIOS_URL):
+        return False, "O gerador está ativo no servidor, mas a URL pública configurada retorna erro. Revise o proxy reverso para apontar para a porta do Streamlit."
+
+    return True, ""
 
 
 @app.route("/horarios")
 def gerador_horarios():
-    disponivel = iniciar_gerador_horarios()
-    return render_template("horarios.html", horarios_url=HORARIOS_URL, disponivel=disponivel)
+    disponivel, mensagem_horarios = iniciar_gerador_horarios()
+    horarios_url_usuario = url_horarios_com_usuario(HORARIOS_URL, g.get("usuario"))
+    return render_template(
+        "horarios.html",
+        horarios_url=horarios_url_usuario,
+        disponivel=disponivel,
+        mensagem_horarios=mensagem_horarios,
+    )
 
 
 def salvar_conferencia_temporaria(dados):

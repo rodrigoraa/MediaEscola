@@ -11,6 +11,74 @@ from exporters import gerar_excel_colorido
 
 st.set_page_config(page_title="Gerar Horário Escolar", layout="wide")
 
+
+def aplicar_estilo_gerador():
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: linear-gradient(180deg, #f8fafc 0%, #eef3f7 100%);
+            color: #17202b;
+        }
+
+        [data-testid="stSidebar"] {
+            background: #ffffff;
+            border-right: 1px solid #d8e1ea;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+            color: #20364d;
+        }
+
+        .main .block-container {
+            max-width: 1480px;
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }
+
+        h1, h2, h3 {
+            color: #20364d;
+            letter-spacing: 0;
+        }
+
+        div[data-testid="stMetric"] {
+            padding: 14px 16px;
+            border: 1px solid #d8e1ea;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 8px 20px rgba(23, 32, 43, 0.06);
+        }
+
+        div[data-testid="stExpander"],
+        div[data-testid="stFileUploader"],
+        div[data-testid="stDataFrame"] {
+            border-radius: 8px;
+        }
+
+        .stButton > button,
+        .stDownloadButton > button {
+            border-radius: 8px;
+            border: 1px solid #187466;
+            background: #187466;
+            color: #ffffff;
+            font-weight: 700;
+            box-shadow: 0 8px 18px rgba(24, 116, 102, 0.16);
+        }
+
+        .stButton > button:hover,
+        .stDownloadButton > button:hover {
+            border-color: #0f5f54;
+            background: #0f5f54;
+            color: #ffffff;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+aplicar_estilo_gerador()
+
 logado, nome_usuario, authenticator = verificar_login()
 
 if not logado:
