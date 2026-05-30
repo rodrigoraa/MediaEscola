@@ -388,13 +388,11 @@ def iniciar_gerador_horarios():
     if url_publica_ok:
         return True, ""
 
-    if local_ok and HORARIOS_URL != local_url:
-        return False, "O gerador está ativo no servidor, mas a URL pública configurada retorna erro. Revise o proxy reverso para apontar para a porta do Streamlit."
+    if local_ok:
+        return True, ""
 
     if HORARIOS_PROCESS and HORARIOS_PROCESS.poll() is None:
         local_ok = local_ok or aguardar_streamlit(local_url, tentativas=4)
-        if local_ok and HORARIOS_URL != local_url:
-            return False, "O gerador iniciou localmente, mas a URL pública configurada ainda não responde. Verifique o proxy reverso ou o DNS/Cloudflare para HORARIOS_URL."
         return local_ok, "" if local_ok else "O processo do gerador está aberto, mas o Streamlit ainda não respondeu na porta configurada."
 
     if not (HORARIOS_DIR / "app.py").exists():
@@ -438,9 +436,6 @@ def iniciar_gerador_horarios():
     local_ok = aguardar_streamlit(local_url)
     if not local_ok:
         return False, "O Streamlit foi acionado, mas não respondeu dentro do tempo esperado. Verifique logs, dependências e se a porta está livre."
-
-    if HORARIOS_URL != local_url and not streamlit_respondendo(HORARIOS_URL):
-        return False, "O gerador está ativo no servidor, mas a URL pública configurada retorna erro. Revise o proxy reverso para apontar para a porta do Streamlit."
 
     return True, ""
 
