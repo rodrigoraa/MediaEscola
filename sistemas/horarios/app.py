@@ -1,13 +1,15 @@
 import streamlit as st
 import pandas as pd
+import traceback
 from xlsx_generator import gerar_modelo_excel
 from data_manager import carregar_e_validar_dados
 from engine import rodar_solver
 from pdf_generator import gerar_pdf_bonito
-from ui_renderer import desenhar_grade, exibir_carga_horaria
+from ui_renderer import desenhar_grade, exibir_carga_horaria, exibir_pls_professores
 from auth import verificar_login
 from auditor import auditoria_pre_solver
 from exporters import gerar_excel_colorido
+from horarios_store import carregar_horario, excluir_horario, listar_horarios, salvar_horario
 
 st.set_page_config(page_title="Gerar Horário Escolar", layout="wide")
 
@@ -92,6 +94,44 @@ with st.sidebar:
 
 st.title("🧩 Gerador de Horários")
 
+if 'horario_gerado' not in st.session_state:
+    st.session_state['horario_gerado'] = False
+    st.session_state['dados_solucao'] = {}
+
+with st.expander("Horários salvos", expanded=False):
+    horarios_salvos = listar_horarios()
+    if not horarios_salvos:
+        st.caption("Nenhum horário salvo ainda. Ao gerar uma grade, ela será salva automaticamente aqui.")
+    else:
+        for horario in horarios_salvos:
+            col_info, col_abrir, col_excluir = st.columns([6, 1.4, 1.4])
+            with col_info:
+                st.markdown(f"**{horario['titulo']}**")
+                st.caption(f"{horario['criado_em']} · {horario['status']} · {horario.get('usuario') or 'Usuário'}")
+            with col_abrir:
+                if st.button("Abrir", key=f"abrir_horario_{horario['id']}"):
+                    salvo = carregar_horario(horario['id'])
+                    if salvo:
+                        dados = salvo["dados"]
+                        st.session_state['horario_gerado'] = True
+                        st.session_state['dados_solucao'] = {
+                            'resultados': dados.get('resultados', []),
+                            'turmas_final': dados.get('turmas_final', {}),
+                            'slots_dia': None,
+                            'dias_selecionados': dados.get('dias_selecionados', []),
+                            'avisos_solver': dados.get('avisos_solver', []),
+                            'status_solver': dados.get('status_solver', salvo.get('status', 'SALVO')),
+                            'titulo_salvo': salvo.get('titulo')
+                        }
+                        st.rerun()
+            with col_excluir:
+                if st.button("Remover", key=f"excluir_horario_{horario['id']}"):
+                    excluir_horario(horario['id'])
+                    if st.session_state.get('dados_solucao', {}).get('titulo_salvo') == horario['titulo']:
+                        st.session_state['horario_gerado'] = False
+                        st.session_state['dados_solucao'] = {}
+                    st.rerun()
+
 with st.expander("📥 Baixar Modelo de Planilha", expanded=False):
     col_dl1, col_dl2 = st.columns([1, 2])
     
@@ -153,6 +193,9 @@ if arquivo:
     
     st.divider()
     
+    st.markdown("#### 1. Semana letiva")
+    st.caption("Escolha os dias que entram na montagem da grade.")
+
     col1, col2 = st.columns(2)
     with col1:
         dias = st.multiselect("Dias Letivos", 
@@ -161,37 +204,37 @@ if arquivo:
     with col2:
         st.info(f"Turmas detectadas: {len(turmas_config)}")
         
-    with st.expander("🕒 Gestão de Hora Atividade (H.A.)", expanded=False):
-        st.markdown("Defina a quantidade de aulas dedicadas a planejamento para cada professor.")
+    with st.expander("2. PLs / Hora Atividade", expanded=True):
+        st.markdown("Marque os professores que devem receber 1 PL/Hora Atividade semanal.")
         
         lista_professores = sorted(list(set([i['prof'] for i in grade_aulas])))
         
         df_ha_inicial = pd.DataFrame({
             "Professor": lista_professores,
-            "tem_ha": [False] * len(lista_professores),
-            "qtd_aulas": [2] * len(lista_professores)
+            "tem_ha": [True] * len(lista_professores),
+            "qtd_aulas": [1] * len(lista_professores)
         })
         
         editor_ha = st.data_editor(
             df_ha_inicial,
             column_config={
                 "tem_ha": st.column_config.CheckboxColumn(
-                    "Tem Hora atividade?",
-                    help="Marque se este professor tem direito a Hora Atividade na grade."
+                    "Gerar PL?",
+                    help="Marque para gerar 1 PL/Hora Atividade semanal para este professor."
                 ),
                 "qtd_aulas": st.column_config.NumberColumn(
-                    "Qtd Semanal",
+                    "Qtd semanal",
                     min_value=1,
-                    max_value=10,
+                    max_value=1,
                     step=1,
-                    format="%d aulas"
+                    format="%d PL"
                 )
             },
-            disabled=["Professor"],
+            disabled=["Professor", "qtd_aulas"],
             hide_index=True,
             use_container_width=True)
 
-    with st.expander("⚙️ Configuração de Itinerários Formativos (Novo Ensino Médio)", expanded=False):
+    with st.expander("3. Itinerários e grupos sincronizados", expanded=False):
         st.markdown("Defina quais matérias são fixas e em quais horários elas devem ocorrer.")
         
         todas_materias = sorted(list(set([i['materia'] for i in grade_aulas])))
@@ -247,32 +290,29 @@ if arquivo:
                             st.session_state['grupos_sincronia'].pop(i)
                             st.rerun()
 
-    if 'horario_gerado' not in st.session_state:
-        st.session_state['horario_gerado'] = False
-        st.session_state['dados_solucao'] = {}
-
-    st.markdown("### ⚙️ Preferências de Geração")
+    st.markdown("#### 4. Exceções")
+    st.caption("Use somente quando a grade não fechar. Aulas seguidas do mesmo professor na mesma turma continuam sendo evitadas ao máximo.")
     
     usar_dobradinhas = st.toggle(
-        "Permitir Dobradinhas (Aulas seguidas)?", 
-        value=True,
+        "Permitir exceções de aulas no mesmo dia?",
+        value=False,
         help="Ativado: Você pode escolher quem dobra. Desativado: O sistema tenta separar as aulas de TODOS os professores."
     )
     
     lista_todos_profs = sorted(list(set([i['prof'] for i in grade_aulas])))    
     
     if usar_dobradinhas:
-        st.info("Selecione abaixo APENAS os professores que podem ter dobradinha.")
+        st.info("Selecione apenas os professores que podem ter exceção se a grade não fechar.")
         profs_dobradinha = st.multiselect(
-            "Quais professores podem dobrar?",
+            "Professores com exceção permitida",
             options=lista_todos_profs,
-            default=lista_todos_profs,
+            default=[],
             help="Remova da lista quem você quer que tenha aulas separadas."
         )
     else:
         profs_dobradinha = []
 
-    if st.button("🚀 Gerar Horário (Modo Blindado)"):
+    if st.button("Gerar horário"):
         
         with st.spinner("Preparando resultados. . ."):
             
@@ -295,13 +335,20 @@ if arquivo:
                         'materia': 'Hora Atividade',
                         'turma': turma_fantasma,
                         'qtd': int(qtd_ha),
-                        'bloqueios_indices': []
+                        'bloqueios_indices': [],
+                        'bloqueios_slots': []
                     })
 
-            erros_mat, avisos_mat = auditoria_pre_solver(grade_aulas, turmas_config, dias)
+            erros_mat, avisos_mat = auditoria_pre_solver(
+                grade_final,
+                turmas_final,
+                dias,
+                itinerarios_selecionados,
+                slots_itinerario_idx
+            )
             
         if erros_mat:
-            st.error("❌ Matemática Impossível (Carga horária excede os espaços disponíveis):")
+            st.error("Não foi possível montar a grade com essas cargas e restrições:")
             for em in erros_mat:
                 st.write(f"- {em}")
                 st.session_state['horario_gerado'] = False
@@ -314,28 +361,57 @@ if arquivo:
         with st.spinner("Calculando a melhor solução possível. . ."):
             regras_projeto = st.session_state.get('regras_projetos', [])
 
-            status, resultados, slots_dia = rodar_solver(
-                turmas_final,           
-                grade_final,            
-                dias,
-                itinerarios_selecionados,
-                slots_itinerario_idx,
-                st.session_state['grupos_sincronia'],
-                professores_com_dobradinha=profs_dobradinha
-            )
+            try:
+                status, resultados, slots_dia, avisos_solver = rodar_solver(
+                    turmas_final,
+                    grade_final,
+                    dias,
+                    itinerarios_selecionados,
+                    slots_itinerario_idx,
+                    st.session_state['grupos_sincronia'],
+                    professores_com_dobradinha=profs_dobradinha
+                )
+            except Exception:
+                st.session_state['horario_gerado'] = False
+                st.error("Erro interno ao calcular o horário.")
+                st.code(traceback.format_exc(), language="text")
+                st.stop()
                 
-            if status == "SUCESSO":
+            if status in ["SUCESSO", "AJUSTADO"]:
                 st.session_state['horario_gerado'] = True
                 st.session_state['dados_solucao'] = {
                     'resultados': resultados,
                     'turmas_final': turmas_final,
                     'slots_dia': slots_dia,
-                    'dias_selecionados': dias
+                    'dias_selecionados': dias,
+                    'avisos_solver': avisos_solver,
+                    'status_solver': status
                 }
-                st.success("✅ Horário Gerado com Sucesso!")
+                titulo_salvo = f"Horário - {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}"
+                dados_para_salvar = {
+                    'resultados': resultados,
+                    'turmas_final': turmas_final,
+                    'dias_selecionados': dias,
+                    'avisos_solver': avisos_solver,
+                    'status_solver': status
+                }
+                horario_id = salvar_horario(titulo_salvo, nome_usuario, status, dados_para_salvar)
+                st.session_state['dados_solucao']['titulo_salvo'] = titulo_salvo
+                st.session_state['dados_solucao']['horario_id'] = horario_id
+                if status == "SUCESSO" and not avisos_solver:
+                    st.success("Horário gerado com sucesso. Todas as restrições principais foram respeitadas.")
+                else:
+                    st.warning("Horário gerado com ajustes. Veja os avisos abaixo.")
+                    for aviso in avisos_solver:
+                        st.write(f"- {aviso}")
+                st.caption(f"Salvo automaticamente em Horários salvos: {titulo_salvo}.")
             else:
                 st.session_state['horario_gerado'] = False
                 st.error("❌ Não foi possível gerar o horário com as configurações atuais.")
+                st.info(
+                    "Revise cargas semanais, quantidade de dias letivos e conflitos simultâneos de professor/turma. "
+                    "Quando houver um horário possível, o sistema gera a melhor versão e mostra os ajustes necessários."
+                )
     
     if st.session_state['horario_gerado']:
         
@@ -344,7 +420,14 @@ if arquivo:
         turmas_f = dados['turmas_final']
         d_sel = dados['dias_selecionados']
         s_dia = dados['slots_dia']
+        avisos_solucao = dados.get('avisos_solver', [])
+
+        if avisos_solucao:
+            with st.expander("Avisos sobre restrições ajustadas", expanded=True):
+                for aviso in avisos_solucao:
+                    st.write(f"- {aviso}")
                 
+        exibir_pls_professores(res, d_sel)
         exibir_carga_horaria(res, d_sel)
         desenhar_grade(res, d_sel, s_dia)
                 
@@ -371,3 +454,46 @@ if arquivo:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
+if st.session_state['horario_gerado'] and not arquivo:
+    dados = st.session_state['dados_solucao']
+    res = dados['resultados']
+    turmas_f = dados['turmas_final']
+    d_sel = dados['dias_selecionados']
+    s_dia = dados.get('slots_dia')
+    avisos_solucao = dados.get('avisos_solver', [])
+
+    st.markdown("### Horário carregado")
+    if dados.get('titulo_salvo'):
+        st.caption(dados['titulo_salvo'])
+
+    if avisos_solucao:
+        with st.expander("Avisos sobre restrições ajustadas", expanded=True):
+            for aviso in avisos_solucao:
+                st.write(f"- {aviso}")
+
+    exibir_pls_professores(res, d_sel)
+    exibir_carga_horaria(res, d_sel)
+    desenhar_grade(res, d_sel, s_dia)
+
+    st.divider()
+    st.markdown("### Baixar arquivos")
+
+    col_pdf, col_xls = st.columns(2)
+    with col_pdf:
+        pdf_bytes = gerar_pdf_bonito(res, turmas_f, d_sel)
+        st.download_button(
+            label="Baixar horário em PDF",
+            data=pdf_bytes,
+            file_name="horario_escolar.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    with col_xls:
+        xls_bytes = gerar_excel_colorido(res, d_sel)
+        st.download_button(
+            label="Baixar Excel para edição",
+            data=xls_bytes,
+            file_name="horario_editar.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )

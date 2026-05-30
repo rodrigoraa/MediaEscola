@@ -68,3 +68,29 @@ def exibir_carga_horaria(resultados, dias_semana):
         .format("{:.0f}"),
         use_container_width=True
     )
+
+
+def exibir_pls_professores(resultados, dias_semana):
+    if not resultados:
+        return
+
+    df = pd.DataFrame(resultados)
+    df_pl = df[df['materia'] == 'Hora Atividade'].copy()
+
+    st.markdown("### PLs / Hora Atividade por professor")
+
+    if df_pl.empty:
+        st.info("Nenhuma PL/Hora Atividade foi adicionada para os professores.")
+        return
+
+    df_pl['Dia'] = df_pl['dia_idx'].apply(lambda idx: dias_semana[idx])
+    df_pl['Aula'] = df_pl['aula_idx'].apply(lambda idx: f"{idx + 1}ª aula")
+
+    tabela = (
+        df_pl[['prof', 'Dia', 'Aula']]
+        .rename(columns={'prof': 'Professor'})
+        .sort_values(['Professor', 'Dia', 'Aula'])
+        .reset_index(drop=True)
+    )
+
+    st.dataframe(tabela, use_container_width=True, hide_index=True)
