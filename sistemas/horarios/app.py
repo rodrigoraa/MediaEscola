@@ -119,45 +119,82 @@ def exibir_relatorio_geracao(relatorio):
     if not relatorio:
         return
 
-    with st.expander("Avisos e relatório da geração", expanded=True):
-        resumo = relatorio.get("resumo", [])
+    resumo = relatorio.get("resumo", [])
+    erros = relatorio.get("erros", [])
+    avisos = relatorio.get("avisos", [])
+    ha_adicionadas = relatorio.get("ha_adicionadas", [])
+    configuracoes = relatorio.get("configuracoes", {})
+
+    st.markdown("### Avisos e relatório da geração")
+
+    with st.expander("Resumo da geração", expanded=True):
         if resumo:
-            st.markdown("#### Resumo")
             for item in resumo:
                 st.write(f"- {item}")
+        else:
+            st.caption("Nenhum resumo registrado para esta geração.")
 
-        erros = relatorio.get("erros", [])
-        avisos = relatorio.get("avisos", [])
-
+    with st.expander(f"Erros encontrados ({len(erros)})", expanded=bool(erros)):
         if erros:
-            st.markdown("#### Erros")
             for item in erros:
                 st.error(item)
+        else:
+            st.success("Nenhum erro encontrado na validação.")
 
+    with st.expander(f"Avisos encontrados ({len(avisos)})", expanded=bool(avisos)):
         if avisos:
-            st.markdown("#### Avisos")
             for item in avisos:
                 st.warning(item)
+        else:
+            st.success("Nenhum aviso registrado.")
 
-        ha_adicionadas = relatorio.get("ha_adicionadas", [])
+    with st.expander(f"PL/H.A adicionadas ({len(ha_adicionadas)})", expanded=False):
         if ha_adicionadas:
-            st.markdown("#### H.A./PL adicionadas")
             st.dataframe(pd.DataFrame(ha_adicionadas), use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhuma PL/H.A foi adicionada para este horário.")
 
-        configuracoes = relatorio.get("configuracoes", {})
-        if configuracoes:
-            st.markdown("#### Configurações usadas")
-            st.json(configuracoes)
+    if configuracoes:
+        st.markdown("### Opções usadas na geração")
+        nomes_config = {
+            "dias_letivos": "Dias letivos",
+            "itinerarios": "Itinerários selecionados",
+            "aulas_itinerario": "Aulas permitidas para itinerários",
+            "grupos_sincronia": "Grupos sincronizados",
+            "professores_com_excecao": "Professores com exceção",
+        }
+        for chave, valor in configuracoes.items():
+            titulo = nomes_config.get(chave, chave.replace("_", " ").title())
+            total = len(valor) if isinstance(valor, list) else 1
+            with st.expander(f"{titulo} ({total})", expanded=False):
+                if isinstance(valor, list):
+                    if valor:
+                        for item in valor:
+                            if isinstance(item, list):
+                                st.write(f"- {', '.join(str(parte) for parte in item)}")
+                            else:
+                                st.write(f"- {item}")
+                    else:
+                        st.caption("Nenhuma opção selecionada.")
+                else:
+                    st.write(valor)
 
 
 def exibir_resultado(res, turmas_f, d_sel, s_dia, relatorio=None, titulo=None):
     if titulo:
         st.caption(titulo)
 
-    exibir_relatorio_geracao(relatorio)
-    exibir_carga_horaria(res, d_sel)
-    desenhar_hora_atividade(res, d_sel)
-    desenhar_grade(res, d_sel, s_dia)
+    aba_pl, aba_horario, aba_avisos = st.tabs(["PL/H.A", "Horário Gerado", "Avisos"])
+
+    with aba_pl:
+        desenhar_hora_atividade(res, d_sel)
+
+    with aba_horario:
+        exibir_carga_horaria(res, d_sel)
+        desenhar_grade(res, d_sel, s_dia)
+
+    with aba_avisos:
+        exibir_relatorio_geracao(relatorio)
 
     st.divider()
     st.markdown("### Baixar arquivos")

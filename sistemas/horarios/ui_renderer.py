@@ -46,11 +46,13 @@ def desenhar_grade(resultados, dias_semana, _ignored=None):
 
 def desenhar_hora_atividade(resultados, dias_semana):
     if not resultados:
+        st.info("Nenhuma PL/H.A foi gerada.")
         return
 
     df = pd.DataFrame(resultados)
     df = df[df.apply(eh_hora_atividade, axis=1)]
     if df.empty:
+        st.info("Nenhuma PL/H.A foi gerada.")
         return
 
     st.markdown("### 🕒 H.A./PL por Professor")
