@@ -31,7 +31,15 @@ def rodar_solver(
     )
 
     if status == "SUCESSO":
-        avisos = _gerar_avisos(resultados, grade_aulas, dias_semana, itinerarios_lista, slots_itinerario_perm, agrupamentos_projetos, professores_com_dobradinha)
+        avisos = _gerar_avisos(
+            resultados,
+            grade_aulas,
+            dias_semana,
+            itinerarios_lista,
+            slots_itinerario_perm,
+            agrupamentos_projetos,
+            professores_com_dobradinha,
+        )
         return "SUCESSO", resultados, slots_dia, avisos
 
     print(">>> Modo estrito sem solucao. Tentando modo ajustado.")
@@ -47,7 +55,15 @@ def rodar_solver(
     )
 
     if status == "SUCESSO":
-        avisos = _gerar_avisos(resultados, grade_aulas, dias_semana, itinerarios_lista, slots_itinerario_perm, agrupamentos_projetos, professores_com_dobradinha)
+        avisos = _gerar_avisos(
+            resultados,
+            grade_aulas,
+            dias_semana,
+            itinerarios_lista,
+            slots_itinerario_perm,
+            agrupamentos_projetos,
+            professores_com_dobradinha,
+        )
         return "AJUSTADO", resultados, slots_dia, avisos
 
     return "FALHA", [], slots_dia, [

@@ -1,12 +1,21 @@
 import streamlit as st
 import pandas as pd
 
+
+def eh_hora_atividade(row):
+    return row.get('materia') == 'Hora Atividade' or str(row.get('turma', '')).startswith('H.A. (')
+
+
 def desenhar_grade(resultados, dias_semana, _ignored=None):
     if not resultados:
         st.warning("Sem resultados para exibir.")
         return
 
     df = pd.DataFrame(resultados)
+    df = df[~df.apply(eh_hora_atividade, axis=1)]
+    if df.empty:
+        return
+
     turmas = sorted(df['turma'].unique())
 
     for turma in turmas:
@@ -33,6 +42,36 @@ def desenhar_grade(resultados, dias_semana, _ignored=None):
         df_visual.index = [f"{i+1}ª Aula" for i in range(qtd_aulas_visual)]
         st.table(df_visual)
         st.markdown("---")
+
+
+def desenhar_hora_atividade(resultados, dias_semana):
+    if not resultados:
+        return
+
+    df = pd.DataFrame(resultados)
+    df = df[df.apply(eh_hora_atividade, axis=1)]
+    if df.empty:
+        return
+
+    st.markdown("### 🕒 H.A./PL por Professor")
+
+    for prof in sorted(df['prof'].unique()):
+        st.markdown(f"#### {prof}")
+        df_p = df[df['prof'] == prof]
+        max_aula_idx = df_p['aula_idx'].max()
+        qtd_aulas_visual = max(5, int(max_aula_idx) + 1)
+        grid = {d: ["---"] * qtd_aulas_visual for d in dias_semana}
+
+        for _, row in df_p.iterrows():
+            d_nome = dias_semana[row['dia_idx']]
+            a_idx = row['aula_idx']
+            if a_idx < qtd_aulas_visual:
+                grid[d_nome][a_idx] = "H.A./PL"
+
+        df_visual = pd.DataFrame(grid)
+        df_visual.index = [f"{i+1}ª Aula" for i in range(qtd_aulas_visual)]
+        st.table(df_visual)
+
 
 def exibir_carga_horaria(resultados, dias_semana):
     """
@@ -68,8 +107,6 @@ def exibir_carga_horaria(resultados, dias_semana):
         .format("{:.0f}"),
         use_container_width=True
     )
-
-
 def exibir_pls_professores(resultados, dias_semana):
     if not resultados:
         return

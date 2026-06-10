@@ -1,5 +1,12 @@
 import pandas as pd
-import math
+from difflib import get_close_matches
+
+
+def _texto_celula(valor):
+    if pd.isna(valor):
+        return ""
+    texto = str(valor).strip()
+    return "" if texto.lower() == "nan" else texto
 
 def carregar_e_validar_dados(arquivo):
     """
@@ -15,16 +22,30 @@ def carregar_e_validar_dados(arquivo):
     except Exception as e:
         return None, None, [f"Erro ao abrir arquivo Excel: {str(e)}"], []
 
-    turmas_config = {} 
+    turmas_config = {}
     
-    for _, row in df_turmas.iterrows():
-        nome = str(row['Turma']).strip()
+    if 'Turma' not in df_turmas.columns or 'Aulas_Semanais' not in df_turmas.columns:
+        return None, None, ["A aba Turmas precisa ter as colunas Turma e Aulas_Semanais."], []
+
+    for idx, row in df_turmas.iterrows():
+        nome = _texto_celula(row['Turma'])
+        if not nome:
+            continue
+
         carga = row.get('Aulas_Semanais', '25')
+
+        if nome in turmas_config:
+            erros.append(f"Linha {idx+2} da aba Turmas: a turma '{nome}' está duplicada.")
+            continue
+
         try:
             turmas_config[nome] = int(float(carga))
         except:
             turmas_config[nome] = 25 
             avisos.append(f"Turma '{nome}' com carga inválida. Assumindo 25.")
+
+    if not turmas_config:
+        erros.append("A aba Turmas não possui nenhuma turma válida.")
 
     def processar_indisponibilidades(texto_bruto):
         """
@@ -75,10 +96,10 @@ def carregar_e_validar_dados(arquivo):
     print("\n>>> INICIANDO LEITURA DAS INDISPONIBILIDADES (COM SUPORTE A HORÁRIOS):")
     
     for idx, row in df_grade.iterrows():
-        prof = str(row['Professor']).strip()
-        mat = str(row['Materia']).strip()
-        turmas_str = str(row['Turmas_Alvo']).strip()
-        qtd_str = str(row['Aulas_Por_Turma']).strip()
+        prof = _texto_celula(row['Professor'])
+        mat = _texto_celula(row['Materia'])
+        turmas_str = _texto_celula(row['Turmas_Alvo'])
+        qtd_str = _texto_celula(row['Aulas_Por_Turma'])
         
         bloq_raw = row.get('Indisponibilidade', '')
         
@@ -98,7 +119,12 @@ def carregar_e_validar_dados(arquivo):
             if not turma: continue
             
             if turma not in turmas_config:
-                turmas_config[turma] = 25
+                sugestao = get_close_matches(turma, turmas_config.keys(), n=1, cutoff=0.65)
+                msg = f"Linha {idx+2}: turma '{turma}' não existe na aba Turmas."
+                if sugestao:
+                    msg += f" Talvez seja '{sugestao[0]}'."
+                erros.append(msg)
+                continue
             
             grade_aulas.append({
                 'id_linha': idx,
@@ -112,6 +138,18 @@ def carregar_e_validar_dados(arquivo):
 
     print(">>> FIM DA LEITURA.\n")
 
+    chaves_vistas = {}
+    for item in grade_aulas:
+        chave = (item['prof'], item['materia'], item['turma'])
+        if chave in chaves_vistas:
+            erros.append(
+                f"Linha {item['id_linha']+2}: lançamento duplicado para "
+                f"{item['prof']} / {item['materia']} / {item['turma']}. "
+                "Junte a carga horária em uma única linha."
+            )
+        else:
+            chaves_vistas[chave] = item['id_linha']
+
     demandas = {}
     for item in grade_aulas:
         t = item['turma']
@@ -120,7 +158,9 @@ def carregar_e_validar_dados(arquivo):
     for turma, carga_definida in turmas_config.items():
         carga_necessaria = demandas.get(turma, 0)
         if carga_necessaria > carga_definida:
-            avisos.append(f"⚠️ Turma {turma}: Pedidos {carga_necessaria} > Vagas {carga_definida}. Expandindo capacidade...")
-            turmas_config[turma] = carga_necessaria 
+            erros.append(
+                f"Turma {turma}: a grade pede {carga_necessaria} aulas, "
+                f"mas a aba Turmas define apenas {carga_definida}."
+            )
 
     return turmas_config, grade_aulas, erros, avisos

@@ -14,6 +14,11 @@ COR_INTERVALO = colors.Color(0.9, 0.9, 0.9)
 COR_ZEBRA_PAR = colors.white
 COR_ZEBRA_IMPAR = colors.Color(0.98, 0.98, 0.98)
 
+
+def eh_hora_atividade(row):
+    return row.get('materia') == 'Hora Atividade' or str(row.get('turma', '')).startswith('H.A. (')
+
+
 def montar_tabela_turma(turma, df_t, dias_semana, styles):
     """
     Função auxiliar que cria a tabela (objeto Flowable) para uma única turma.
@@ -98,6 +103,54 @@ def montar_tabela_turma(turma, df_t, dias_semana, styles):
     elementos_locais.append(tabela)
     return elementos_locais
 
+
+def montar_tabela_hora_atividade(df_ha, dias_semana, styles):
+    if df_ha.empty:
+        return []
+
+    title_style = ParagraphStyle(
+        'HoraAtividadeTitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.black,
+        alignment=1,
+        spaceAfter=5
+    )
+    cell_style = ParagraphStyle('CellStyleHA', parent=styles['Normal'], alignment=1, leading=8)
+
+    elementos = [Paragraph("<b>H.A./PL por Professor</b>", title_style)]
+    data = [["Professor", "Dia", "Aula", "Atividade"]]
+
+    registros = []
+    for _, row in df_ha.iterrows():
+        registros.append((
+            row['prof'],
+            dias_semana[row['dia_idx']],
+            f"{row['aula_idx'] + 1}ª Aula",
+            "H.A./PL",
+        ))
+
+    for prof, dia, aula, atividade in sorted(registros):
+        data.append([
+            Paragraph(str(prof), cell_style),
+            Paragraph(str(dia), cell_style),
+            Paragraph(str(aula), cell_style),
+            Paragraph(str(atividade), cell_style),
+        ])
+
+    tabela = Table(data, colWidths=[7*cm, 4*cm, 4*cm, 5*cm])
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_CABECALHO),
+        ('TEXTCOLOR', (0, 0), (-1, 0), COR_TEXTO_CABECALHO),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, COR_LINHAS_GRADE),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elementos.append(tabela)
+    return elementos
+
+
 def gerar_pdf_bonito(resultados, turmas_config, dias_semana):
     buffer = BytesIO()
     
@@ -117,9 +170,15 @@ def gerar_pdf_bonito(resultados, turmas_config, dias_semana):
         return None
     
     df = pd.DataFrame(resultados)
+    mascara_ha = df.apply(eh_hora_atividade, axis=1)
+    df_aulas = df[~mascara_ha]
+    df_ha = df[mascara_ha]
     turmas_ordenadas = sorted(list(turmas_config.keys()))
     
-    turmas_validas = [t for t in turmas_ordenadas if t in df['turma'].values]
+    turmas_validas = [
+        t for t in turmas_ordenadas
+        if t in df_aulas['turma'].values and not t.startswith("H.A. (")
+    ]
 
     for i in range(0, len(turmas_validas), 2):
         
@@ -138,6 +197,9 @@ def gerar_pdf_bonito(resultados, turmas_config, dias_semana):
             elements.extend(objs2)
         
         elements.append(PageBreak())
+
+    if not df_ha.empty:
+        elements.extend(montar_tabela_hora_atividade(df_ha, dias_semana, styles))
 
     doc.build(elements)
     buffer.seek(0)
