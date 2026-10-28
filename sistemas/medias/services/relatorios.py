@@ -14,6 +14,8 @@ def gerar_excel(pasta_exportacao, notas, analises, boletim_id=None):
 
     with pd.ExcelWriter(caminho, engine="openpyxl") as writer:
         pd.DataFrame(notas).to_excel(writer, sheet_name="Dados extraídos", index=False)
+        if analises.get("avisos"):
+            pd.DataFrame({"Aviso": analises["avisos"]}).to_excel(writer, sheet_name="Avisos", index=False)
         _aba(writer, "Média por aluno", analises["media_por_aluno"])
         _aba(writer, "Média por disciplina", analises["media_por_disciplina"])
         _aba(writer, "Média por bimestre", analises["media_por_bimestre"])

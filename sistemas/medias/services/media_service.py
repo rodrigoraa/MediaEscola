@@ -1,10 +1,13 @@
 import csv
 import logging
+import math
 import statistics
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+
+from .situacao import excluir_transferidos
 
 
 logger = logging.getLogger("media_service")
@@ -16,8 +19,8 @@ RELATORIOS = {
     "media_geral_turma": {
         "grupo": "Médias da Turma",
         "titulo": "Média Geral da Turma",
-        "descricao": "Média de todas as notas válidas de todos os alunos, disciplinas e bimestres.",
-        "formula": "soma de todas as notas válidas ÷ quantidade total de notas válidas",
+        "descricao": "Média dos valores anuais válidos, um por aluno e disciplina. Prioriza a Média Final do boletim.",
+        "formula": "soma dos valores anuais válidos ÷ quantidade de pares aluno e disciplina válidos",
         "exemplo": "(8 + 7 + 6 + 9) ÷ 4 = 7,50",
         "filtros": [],
     },
@@ -32,9 +35,9 @@ RELATORIOS = {
     "media_turma_disciplina": {
         "grupo": "Médias da Turma",
         "titulo": "Média da Turma por Disciplina",
-        "descricao": "Média de todos os alunos em uma disciplina, considerando todos os bimestres.",
-        "formula": "soma das notas da disciplina ÷ quantidade de notas da disciplina",
-        "exemplo": "Matemática: todas as notas de Matemática ÷ total de notas de Matemática",
+        "descricao": "Média dos valores anuais dos alunos na disciplina. Prioriza a Média Final do boletim.",
+        "formula": "soma dos valores anuais da disciplina ÷ quantidade de alunos com valor anual válido",
+        "exemplo": "Matemática: finais 5 e 8 resultam em 6,50",
         "filtros": ["disciplina"],
     },
     "media_turma_disciplina_bimestre": {
@@ -48,9 +51,9 @@ RELATORIOS = {
     "media_geral_aluno": {
         "grupo": "Médias do Aluno",
         "titulo": "Média Geral do Aluno",
-        "descricao": "Média de todas as notas do aluno, em todas as disciplinas e bimestres.",
-        "formula": "soma das notas do aluno ÷ quantidade de notas do aluno",
-        "exemplo": "Aluno Ana: todas as notas da Ana ÷ quantidade de notas da Ana",
+        "descricao": "Média dos valores anuais válidos das disciplinas do aluno.",
+        "formula": "soma dos valores anuais do aluno ÷ quantidade de disciplinas com valor anual válido",
+        "exemplo": "Ana: finais 5 e 9 resultam em 7,00",
         "filtros": ["aluno"],
     },
     "media_aluno_bimestre": {
@@ -64,9 +67,9 @@ RELATORIOS = {
     "media_aluno_disciplina": {
         "grupo": "Médias do Aluno",
         "titulo": "Média do Aluno por Disciplina",
-        "descricao": "Média do aluno em uma disciplina específica, considerando todos os bimestres.",
-        "formula": "soma das notas do aluno na disciplina ÷ quantidade dessas notas",
-        "exemplo": "Ana em Matemática: notas da Ana em Matemática ÷ quantidade",
+        "descricao": "Valor anual do aluno na disciplina: Média Final válida ou, somente se vazia, média dos bimestres válidos.",
+        "formula": "Média Final; quando vazia, soma das notas bimestrais válidas ÷ quantidade dessas notas",
+        "exemplo": "1º bimestre 10 e Média Final 5: resultado anual 5,00",
         "filtros": ["aluno", "disciplina"],
     },
     "media_aluno_disciplina_bimestre": {
@@ -80,7 +83,7 @@ RELATORIOS = {
     "estatisticas": {
         "grupo": "Estatísticas",
         "titulo": "Estatísticas Gerais",
-        "descricao": "Resumo estatístico das notas válidas conforme os filtros selecionados.",
+        "descricao": "Resumo dos valores anuais; com bimestre selecionado, utiliza apenas as notas daquele bimestre.",
         "formula": "maior nota, menor nota, mediana, moda, desvio padrão e percentuais de situação",
         "exemplo": "Use para diagnosticar distribuição e risco da turma.",
         "filtros": ["aluno", "disciplina", "bimestre"],
@@ -103,27 +106,92 @@ RELATORIOS_REMOVIDOS = {
 
 
 def preparar_dataframe(notas):
-    df = pd.DataFrame(notas)
-    if df.empty:
-        return df
+    df = pd.DataFrame(excluir_transferidos(notas))
 
-    for coluna in ["turma", "ano_letivo", "nome_aluno", "disciplina", "bimestre", "situacao", "nota", "peso"]:
+    for coluna in ["boletim_id", "turma", "ano_letivo", "nome_aluno", "disciplina", "bimestre", "situacao", "nota", "media_final", "peso"]:
         if coluna not in df.columns:
             df[coluna] = ""
 
+    for coluna in ["boletim_id", "turma", "ano_letivo"]:
+        df[coluna] = df[coluna].fillna("")
+
     df["nota_num"] = df["nota"].apply(normalizar_nota)
+    df["media_final_num"] = df["media_final"].apply(normalizar_nota)
     df["peso_num"] = df["peso"].apply(normalizar_peso)
     return df
+
+
+def dados_bimestrais(df):
+    """Somente notas válidas em bimestres identificados; não usa média final."""
+    return df[df["nota_num"].notna() & df["bimestre"].fillna("").ne("")].copy()
+
+
+def dados_anuais(df):
+    """Uma contribuição anual por aluno/disciplina dentro da importação/turma/ano.
+
+    `nota_num` nesta base contém o valor anual, compartilhando as agregações.
+    O campo `media_final` original permanece intacto.
+    """
+    if "valor_anual" in df.columns:
+        return df
+    chaves = ["boletim_id", "turma", "ano_letivo", "nome_aluno", "disciplina"]
+    linhas = []
+    avisos = []
+    for _, grupo in df.groupby(chaves, dropna=False, sort=True):
+        finais = grupo["media_final_num"].dropna().unique()
+        if len(finais) > 1:
+            avisos.append(
+                f"Médias Finais conflitantes para {grupo.iloc[0]['nome_aluno']} / "
+                f"{grupo.iloc[0]['disciplina']}. Confira o boletim e corrija todas as ocorrências da Média Final."
+            )
+            continue
+        if len(finais):
+            valor = float(finais[0])
+        elif grupo["media_final"].apply(_valor_vazio).all():
+            notas = dados_bimestrais(grupo)["nota_num"]
+            if notas.empty:
+                continue
+            valor = float(notas.mean())
+        else:
+            continue
+        linha = grupo.iloc[0].to_dict()
+        linha.update(nota_num=valor, valor_anual=valor, bimestre="")
+        linhas.append(linha)
+    resultado = pd.DataFrame(linhas, columns=[*df.columns, "valor_anual"])
+    resultado.attrs["avisos"] = avisos
+    return resultado
+
+
+def validar_medias_finais(notas):
+    """Diagnóstico compartilhado com importação e relatórios, sem escolher final."""
+    return dados_anuais(preparar_dataframe(notas)).attrs.get("avisos", [])
+
+
+def _valor_vazio(valor):
+    return pd.isna(valor) or not str(valor).strip()
+
+
+def resumir_disciplinas(notas, media_minima=MEDIA_MINIMA_PADRAO):
+    df = dados_anuais(preparar_dataframe(notas))
+    if df.empty:
+        return []
+    resumo = df.groupby("disciplina").agg(
+        media=("nota_num", "mean"), menor_media=("nota_num", "min"),
+        maior_media=("nota_num", "max"), alunos=("nota_num", "count"),
+        abaixo_media=("nota_num", lambda v: int((v < media_minima).sum())),
+    ).reset_index()
+    return resumo.round(2).sort_values("media").to_dict(orient="records")
 
 
 def opcoes_filtros(df):
     if df.empty:
         return {"alunos": [], "disciplinas": [], "bimestres": []}
 
+    validos = df[df["nota_num"].notna() | df["media_final_num"].notna()]
     return {
-        "alunos": _opcoes(df, "nome_aluno"),
-        "disciplinas": _opcoes(df, "disciplina"),
-        "bimestres": _ordenar_bimestres(_opcoes(df, "bimestre")),
+        "alunos": _opcoes(validos, "nome_aluno"),
+        "disciplinas": _opcoes(validos, "disciplina"),
+        "bimestres": _ordenar_bimestres(_opcoes(dados_bimestrais(df), "bimestre")),
     }
 
 
@@ -136,7 +204,12 @@ def calcular_gerador_medias(notas, filtros):
     df_base = preparar_dataframe(notas)
     opcoes = opcoes_filtros(df_base)
     df_filtrado = aplicar_filtros(df_base, filtros, RELATORIOS[relatorio]["filtros"])
-    df_valido = df_filtrado.dropna(subset=["nota_num"]).copy() if not df_filtrado.empty else df_filtrado
+    bimestral = "bimestre" in RELATORIOS[relatorio]["filtros"]
+    if relatorio == "estatisticas":
+        bimestral = bool(filtros.get("bimestre"))
+    filtros_anuais = [f for f in RELATORIOS[relatorio]["filtros"] if f != "bimestre"]
+    df_anual = dados_anuais(aplicar_filtros(df_base, filtros, filtros_anuais))
+    df_valido = dados_bimestrais(df_filtrado) if bimestral else df_anual
 
     logger.info(
         "calculo_medias relatorio=%s tipo=%s registros_filtrados=%s notas_validas=%s filtros=%s",
@@ -151,13 +224,17 @@ def calcular_gerador_medias(notas, filtros):
     resultados = _classificar_resultados(resultados, media_minima, limite_recuperacao)
     resultados = _aplicar_filtros_de_desempenho(resultados, filtros, media_minima)
     resultados = gerarRanking(resultados)
+    if filtros.get("ordenacao") == "menor_media":
+        resultados = list(reversed(resultados))
     estatisticas = _estatisticas(df_valido, resultados, media_minima)
 
     return {
         "opcoes": opcoes,
         "resultados": resultados,
         "estatisticas": estatisticas,
-        "graficos": _graficos(df_valido),
+        "graficos": _graficos(df_filtrado, df_anual),
+        "avisos": df_anual.attrs.get("avisos", []),
+        "periodo": "bimestral" if bimestral else "anual",
         "media_minima": media_minima,
         "limite_recuperacao": limite_recuperacao,
         "tipo_calculo": tipo_calculo,
@@ -174,7 +251,7 @@ def aplicar_filtros(df, filtros, filtros_relevantes=None):
     if df.empty:
         return df
 
-    filtros_relevantes = set(filtros_relevantes or [])
+    filtros_relevantes = set(filtros_relevantes if filtros_relevantes is not None else ["aluno", "disciplina", "bimestre"])
     resultado = df.copy()
     mapa = {
         "aluno": "nome_aluno",
@@ -184,50 +261,53 @@ def aplicar_filtros(df, filtros, filtros_relevantes=None):
 
     for campo, coluna in mapa.items():
         valor = filtros.get(campo)
-        if valor and (not filtros_relevantes or campo in filtros_relevantes):
+        if valor and campo in filtros_relevantes:
             resultado = resultado[resultado[coluna] == valor]
 
     return resultado
 
 
-# Fórmula: soma de todas as notas válidas / quantidade total de notas válidas.
+# Fórmula anual: um valor válido por aluno/disciplina.
 def calcularMediaGeralTurma(df, tipo_calculo="media_simples"):
+    df = dados_anuais(df)
+    if df.empty:
+        return []
     return [_linha_resultado("Turma", "", "", "", _calcular_media(df, tipo_calculo), len(df))]
 
 
 # Fórmula: soma das notas do bimestre / quantidade de notas do bimestre.
 def calcularMediaTurmaPorBimestre(df, tipo_calculo="media_simples"):
-    return _agrupar(df, ["bimestre"], tipo_calculo, ["bimestre"])
+    return _agrupar(dados_bimestrais(df), ["bimestre"], tipo_calculo, ["bimestre"])
 
 
-# Fórmula: soma das notas da disciplina / quantidade de notas da disciplina.
+# Fórmula anual: média dos valores anuais da disciplina.
 def calcularMediaTurmaPorDisciplina(df, tipo_calculo="media_simples"):
-    return _agrupar(df, ["disciplina"], tipo_calculo, ["disciplina"])
+    return _agrupar(dados_anuais(df), ["disciplina"], tipo_calculo, ["disciplina"])
 
 
 # Fórmula: soma das notas da disciplina no bimestre / quantidade dessas notas.
 def calcularMediaTurmaPorDisciplinaEBimestre(df, tipo_calculo="media_simples"):
-    return _agrupar(df, ["disciplina", "bimestre"], tipo_calculo, ["disciplina", "bimestre"])
+    return _agrupar(dados_bimestrais(df), ["disciplina", "bimestre"], tipo_calculo, ["disciplina", "bimestre"])
 
 
-# Fórmula: soma das notas do aluno / quantidade de notas do aluno.
+# Fórmula anual: média dos valores anuais das disciplinas do aluno.
 def calcularMediaAluno(df, tipo_calculo="media_simples"):
-    return _agrupar(df, ["nome_aluno"], tipo_calculo, ["aluno"])
+    return _agrupar(dados_anuais(df), ["nome_aluno"], tipo_calculo, ["aluno"])
 
 
 # Fórmula: soma das notas do aluno no bimestre / quantidade dessas notas.
 def calcularMediaAlunoPorBimestre(df, tipo_calculo="media_simples"):
-    return _agrupar(df, ["nome_aluno", "bimestre"], tipo_calculo, ["aluno", "bimestre"])
+    return _agrupar(dados_bimestrais(df), ["nome_aluno", "bimestre"], tipo_calculo, ["aluno", "bimestre"])
 
 
-# Fórmula: soma das notas do aluno na disciplina / quantidade dessas notas.
+# Fórmula anual: valor anual único do aluno na disciplina.
 def calcularMediaAlunoPorDisciplina(df, tipo_calculo="media_simples"):
-    return _agrupar(df, ["nome_aluno", "disciplina"], tipo_calculo, ["aluno", "disciplina"])
+    return _agrupar(dados_anuais(df), ["nome_aluno", "disciplina"], tipo_calculo, ["aluno", "disciplina"])
 
 
 # Fórmula: soma das notas do aluno na disciplina e bimestre / quantidade dessas notas.
 def calcularMediaAlunoPorDisciplinaEBimestre(df, tipo_calculo="media_simples"):
-    return _agrupar(df, ["nome_aluno", "disciplina", "bimestre"], tipo_calculo, ["aluno", "disciplina", "bimestre"])
+    return _agrupar(dados_bimestrais(df), ["nome_aluno", "disciplina", "bimestre"], tipo_calculo, ["aluno", "disciplina", "bimestre"])
 
 
 def calcularMediaTurmaPorDisciplinaBimestre(df, tipo_calculo="media_simples"):
@@ -266,6 +346,7 @@ def calcularDesvioPadrao(valores):
 
 
 def gerarRanking(resultados):
+    resultados = [r for r in resultados if r.get("media_calculada") is not None]
     ordenados = sorted(resultados, key=lambda row: (row["media_calculada"] is None, -(row["media_calculada"] or 0)))
     for posicao, row in enumerate(ordenados, start=1):
         row["ranking"] = posicao
@@ -276,10 +357,10 @@ def classificarSituacaoAluno(media, media_minima=MEDIA_MINIMA_PADRAO, limite_rec
     if media is None:
         return "Sem nota"
     if media >= media_minima:
-        return "Aprovado"
+        return "Acima da média"
     if media >= limite_recuperacao:
-        return "Recuperação"
-    return "Reprovado"
+        return "Em atenção"
+    return "Abaixo da média"
 
 
 def exportar_resultados_csv(pasta_exportacao, resultados):
@@ -334,6 +415,10 @@ def normalizar_relatorio(relatorio):
 
 
 def _selecionar_relatorio(df, relatorio, tipo_calculo):
+    if relatorio == "estatisticas":
+        if df.empty:
+            return []
+        return [_linha_resultado("Turma", "", "", "", _calcular_media(df, tipo_calculo), len(df))]
     mapa = {
         "media_geral_turma": calcularMediaGeralTurma,
         "media_turma_bimestre": calcularMediaTurmaPorBimestre,
@@ -412,9 +497,9 @@ def _aplicar_filtros_de_desempenho(resultados, filtros, media_minima):
 def _estatisticas(df, resultados, media_minima):
     valores = list(df["nota_num"].dropna()) if not df.empty else []
     total = len(resultados)
-    aprovados = len([r for r in resultados if r.get("situacao") == "Aprovado"])
-    recuperacao = len([r for r in resultados if r.get("situacao") == "Recuperação"])
-    reprovados = len([r for r in resultados if r.get("situacao") == "Reprovado"])
+    aprovados = len([r for r in resultados if r.get("situacao") == "Acima da média"])
+    recuperacao = len([r for r in resultados if r.get("situacao") == "Em atenção"])
+    reprovados = len([r for r in resultados if r.get("situacao") == "Abaixo da média"])
     abaixo = len([r for r in resultados if (r.get("media_calculada") or 0) < media_minima])
     acima = len([r for r in resultados if (r.get("media_calculada") or 0) >= media_minima])
 
@@ -427,21 +512,21 @@ def _estatisticas(df, resultados, media_minima):
         "desvio_padrao": calcularDesvioPadrao(valores),
         "qtd_abaixo_media": abaixo,
         "qtd_acima_media": acima,
-        "percentual_aprovacao": _percentual(aprovados, total),
-        "percentual_recuperacao": _percentual(recuperacao, total),
-        "percentual_reprovacao": _percentual(reprovados, total),
+        "percentual_acima_media": _percentual(aprovados, total),
+        "percentual_em_atencao": _percentual(recuperacao, total),
+        "percentual_abaixo_media": _percentual(reprovados, total),
         "total_resultados": total,
         "notas_validas": len(valores),
     }
 
 
-def _graficos(df):
+def _graficos(df, df_anual=None):
     if df.empty:
         return {"bimestres": [], "disciplinas": []}
     return {
         "bimestres": calcularMediaTurmaPorBimestre(df, "media_simples"),
         "disciplinas": sorted(
-            calcularMediaTurmaPorDisciplina(df, "media_simples"),
+            calcularMediaTurmaPorDisciplina(df_anual if df_anual is not None else df, "media_simples"),
             key=lambda row: row["media_calculada"] if row["media_calculada"] is not None else 99,
         )[:10],
     }
@@ -463,14 +548,18 @@ def normalizar_nota(valor):
     if not texto or texto.upper() == "SN":
         return None
     try:
-        return float(texto)
-    except ValueError:
+        numero = float(texto)
+        return numero if math.isfinite(numero) and 0 <= numero <= 10 else None
+    except (TypeError, ValueError):
         return None
 
 
 def normalizar_peso(valor):
-    peso = normalizar_nota(valor)
-    return peso if peso and peso > 0 else 1.0
+    try:
+        peso = float(str(valor).strip().replace(",", "."))
+        return peso if math.isfinite(peso) and peso > 0 else 1.0
+    except (TypeError, ValueError):
+        return 1.0
 
 
 def _opcoes(df, coluna):
@@ -612,7 +701,7 @@ def _resumo_pdf(comandos, estatisticas, margem, y):
         ("Maior nota", _fmt(estatisticas.get("maior_nota"))),
         ("Menor nota", _fmt(estatisticas.get("menor_nota"))),
         ("Abaixo da média", estatisticas.get("qtd_abaixo_media")),
-        ("Aprovação", f"{str(estatisticas.get('percentual_aprovacao', 0)).replace('.', ',')}%"),
+        ("Acima da média", f"{str(estatisticas.get('percentual_acima_media', 0)).replace('.', ',')}%"),
     ]
     largura_card = 118
     for idx, (titulo, valor) in enumerate(cards):

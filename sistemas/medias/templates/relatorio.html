@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% for aviso in analises.avisos %}
+    <p role="alert">{{ aviso }}</p>
+{% endfor %}
 <section class="panel">
     <div class="section-title">
         <div>
@@ -17,7 +20,7 @@
         <strong>{{ analises.media_geral_turma|media(modo) }}</strong>
     </article>
     <article class="metric">
-        <span>Alunos abaixo de 6,0</span>
+        <span>Alunos abaixo de {{ analises.media_minima|media("nota") }}</span>
         <strong>{{ analises.alunos_abaixo_media|length }}</strong>
     </article>
     <article class="metric">

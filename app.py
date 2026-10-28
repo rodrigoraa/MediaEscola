@@ -36,8 +36,10 @@ from sistemas.medias.services.media_service import (
     exportar_resultados_csv,
     exportar_resultados_excel,
     exportar_resultados_pdf,
+    validar_medias_finais,
 )
 from sistemas.medias.services.relatorios import gerar_excel
+from sistemas.medias.services.situacao import excluir_transferidos
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -94,8 +96,16 @@ app.permanent_session_lifetime = timedelta(hours=int(os.getenv("SESSION_HOURS", 
 ROTAS_PUBLICAS = {"login", "static"}
 
 
+class _ConexaoSQLite(sqlite3.Connection):
+    def __exit__(self, *args):
+        try:
+            return super().__exit__(*args)
+        finally:
+            self.close()
+
+
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, factory=_ConexaoSQLite)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -289,6 +299,11 @@ def carregar_configuracoes():
     with get_db() as conn:
         rows = conn.execute("SELECT chave, valor FROM configuracoes").fetchall()
     return {row["chave"]: row["valor"] for row in rows}
+
+
+def analises_configuradas(notas):
+    config = carregar_configuracoes()
+    return gerar_analises(notas, config.get("media_minima", "6.0"), config.get("limite_recuperacao", "4.0"))
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -510,7 +525,7 @@ def index():
         arquivo.save(caminho)
 
         try:
-            dados = extrair_boletim_pdf(caminho)
+            dados = excluir_transferidos(extrair_boletim_pdf(caminho))
         except Exception as exc:
             flash(f"Não foi possível ler o PDF: {exc}")
             return redirect(url_for("index"))
@@ -557,7 +572,7 @@ def excluir_boletim(boletim_id):
 @app.route("/conferencia", methods=["GET", "POST"])
 def conferencia():
     token = session.get("conferencia_token")
-    dados = carregar_conferencia_temporaria(token)
+    dados = excluir_transferidos(carregar_conferencia_temporaria(token))
     arquivo_pdf = session.get("arquivo_pdf")
 
     if not dados or not arquivo_pdf:
@@ -596,9 +611,16 @@ def conferencia():
                 }
             )
 
+        linhas = excluir_transferidos(linhas)
         if not linhas:
-            flash("Mantenha pelo menos uma linha com aluno e disciplina.")
+            flash("Mantenha pelo menos uma linha com aluno e disciplina que não seja transferido.")
             return render_template("conferencia.html", dados=dados, resumo=resumir_linhas(dados))
+
+        avisos = validar_medias_finais(linhas)
+        if avisos:
+            for aviso in avisos:
+                flash(aviso)
+            return render_template("conferencia.html", dados=linhas, resumo=resumir_linhas(linhas))
 
         with get_db() as conn:
             cursor = conn.execute(
@@ -671,7 +693,7 @@ def analise():
         detalhe = "aluno_bimestre"
 
     notas = buscar_notas(boletim_id)
-    analises = gerar_analises(notas)
+    analises = analises_configuradas(notas)
     bimestres = [row["bimestre"] for row in analises.get("media_por_bimestre", []) if row.get("bimestre")]
 
     if visao == "bimestre" and bimestre:
@@ -708,7 +730,7 @@ def relatorio():
     if modo not in {"nota", "porcentagem"}:
         modo = "nota"
     notas = buscar_notas(boletim_id)
-    analises = gerar_analises(notas)
+    analises = analises_configuradas(notas)
 
     return render_template(
         "relatorio.html",
@@ -729,7 +751,7 @@ def exportar_excel():
         flash("Não há dados para exportar.")
         return redirect(url_for("analise"))
 
-    analises = gerar_analises(notas)
+    analises = analises_configuradas(notas)
     caminho = gerar_excel(EXPORT_DIR, notas, analises, boletim_id)
     return send_file(caminho, as_attachment=True, download_name=Path(caminho).name)
 
@@ -758,6 +780,11 @@ def exportar_medias(formato):
 
     notas = buscar_notas(filtros.get("boletim_id"))
     resultado = calcular_gerador_medias(notas, filtros)
+
+    if resultado["avisos"]:
+        for aviso in resultado["avisos"]:
+            flash(aviso)
+        return redirect(url_for("gerador_medias", **filtros))
 
     if formato == "csv":
         caminho = exportar_resultados_csv(EXPORT_DIR, resultado["resultados"])

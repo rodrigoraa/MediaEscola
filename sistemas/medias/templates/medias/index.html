@@ -9,6 +9,10 @@
         </div>
     </div>
 
+    {% for aviso in resultado.avisos %}
+        <p role="alert">{{ aviso }}</p>
+    {% endfor %}
+
     <form method="post" id="media-form" action="{{ url_for('gerador_medias') }}#resultados">
         <div class="media-option-groups">
             {% for grupo in ["Médias da Turma", "Médias do Aluno", "Estatísticas"] %}
@@ -122,8 +126,8 @@
 </section>
 
 <section class="analysis-summary" id="resultados">
-    <article class="metric"><span>Notas válidas</span><strong>{{ resultado.estatisticas.notas_validas }}</strong></article>
-    <article class="metric"><span>Média das notas filtradas</span><strong>{{ resultado.estatisticas.media_geral|media("nota") }}</strong></article>
+    <article class="metric"><span>{{ "Valores anuais válidos" if resultado.periodo == "anual" else "Notas válidas" }}</span><strong>{{ resultado.estatisticas.notas_validas }}</strong></article>
+    <article class="metric"><span>Média dos valores filtrados</span><strong>{{ resultado.estatisticas.media_geral|media("nota") }}</strong></article>
     <article class="metric"><span>Maior nota</span><strong>{{ resultado.estatisticas.maior_nota|media("nota") }}</strong></article>
     <article class="metric"><span>Menor nota</span><strong>{{ resultado.estatisticas.menor_nota|media("nota") }}</strong></article>
     <article class="metric"><span>Mediana</span><strong>{{ resultado.estatisticas.mediana|media("nota") }}</strong></article>
@@ -195,8 +199,8 @@
                         <th>Disciplina</th>
                         <th>Bimestre</th>
                         <th>Média calculada</th>
-                        <th>Situação</th>
-                        <th>Quantidade de notas</th>
+                        <th>Desempenho calculado</th>
+                        <th>Quantidade de valores</th>
                         <th>Observação</th>
                     </tr>
                 </thead>
